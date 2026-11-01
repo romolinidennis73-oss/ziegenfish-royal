@@ -33,29 +33,30 @@ function nearestItem(c, R) {
   return best;
 }
 function botSee(c) {
-  const range = c.persona === 'vorsichtig' ? 70 : 95; let best = null, bd = 1e9; const cosF = Math.cos(c.yaw), sinF = Math.sin(c.yaw);
+  const range = c.persona === 'vorsichtig' ? 50 : 68; let best = null, bd = 1e9; const cosF = Math.cos(c.yaw), sinF = Math.sin(c.yaw);
   for (const t of M.chars) {
     if (t === c || !t.alive || t.mode !== 'ground') continue; const dx = t.x - c.x, dz = t.z - c.z, d = Math.hypot(dx, dz); if (d > range || d > bd) continue;
     // Sichtfeld 220°, nah immer
     if (d > 12 && (dx * sinF + dz * cosF) / d < -0.35) continue;
-    let sc = d; if (t.isPlayer) sc *= 0.9; if (t.crouch && d > 25) sc *= 1.4;
+    let sc = d; if (t.isPlayer) { if (c.threat !== t && playerAttackers() >= 2) continue; sc *= 1.8; } if (t.crouch && d > 25) sc *= 1.4;
     if (sc < bd && lineOfSight(c.x, c.y + 1.6, c.z, t.x, t.y + 1.3, t.z)) { bd = sc; best = t; }
   }
   return best;
 }
+function playerAttackers() { if (M._paT === M.time) return M._paN; let n = 0; for (const b of M.chars) if (b.alive && !b.isPlayer && b.target === M.player && M.time - b.seenT < 3) n++; M._paT = M.time; M._paN = n; return n; }
 function botThink(c) {
   const dif = DIFF[Settings.difficulty]; c.think = dif.think * rand(0.8, 1.3);
   // Wahrnehmung
   let t = c.target && c.target.alive ? c.target : null;
   if (c.threat && c.threat.alive && M.time - c.threatT < 4) { const d = Math.hypot(c.threat.x - c.x, c.threat.z - c.z); if (d < 120) t = c.threat; }
   const seen = botSee(c);
-  if (seen) { if (!t || seen === t || Math.hypot(seen.x - c.x, seen.z - c.z) < Math.hypot(t.x - c.x, t.z - c.z) * 0.6) { if (seen !== c.target) c.reactT = dif.react * rand(0.8, 1.3); t = seen; } c.seenT = M.time; }
+  if (seen) { if (!t || seen === t || Math.hypot(seen.x - c.x, seen.z - c.z) < Math.hypot(t.x - c.x, t.z - c.z) * 0.6) { if (seen !== c.target) c.reactT = (seen.isPlayer ? dif.react + dif.preact : dif.react) * rand(0.8, 1.3); t = seen; } c.seenT = M.time; }
   if (t) { if (lineOfSight(c.x, c.y + 1.6, c.z, t.x, t.y + 1.3, t.z)) { c.seenT = M.time; c.lkx = t.x; c.lkz = t.z; c.tVis = true; } else c.tVis = false; if (M.time - c.seenT > 6) t = null; }
   c.target = t;
   const dist = t ? Math.hypot(t.x - c.x, t.z - c.z) : 60;
   // Waffe wählen
   if (c.healT <= 0) { const bi = bestWeaponSlot(c, dist); if (bi >= 0 && bi !== c.sel) { c.sel = bi; c.reloadT = 0; syncHeld(c); } }
-  const armed = !!curWeapon(c) || c.slots.some(s => s && WEAPONS[s.key] && (s.mag > 0 || c.ammo[WEAPONS[s.key].ammo] > 0));
+  const armed = c.slots.some(s => s && WEAPONS[s.key] && (s.mag > 0 || c.ammo[WEAPONS[s.key].ammo] > 0)); c.ammoLow = !armed && c.slots.some(s => s && WEAPONS[s.key]);
   // Sturm
   const outside = !inSafe(c.x, c.z, 6); const nextOut = !inNext(c.x, c.z, 8); const timeLeft = S.mode === 'wait' ? S.t + (S.phase < STORM_PHASES.length ? STORM_PHASES[S.phase][1] * stormScale() : 0) : S.t;
   const needMove = outside || (nextOut && (S.mode === 'shrink' || timeLeft < Math.hypot(c.x - S.tx, c.z - S.tz) / 6 + 25 / c.aggro));
@@ -116,7 +117,7 @@ function botUpdate(c, dt, near) {
       const dif = DIFF[Settings.difficulty]; const tsp = Math.hypot(t.vx, t.vz);
       const aimY = t.y + (Math.random() < (Settings.difficulty === 'schwer' ? 0.25 : 0.12) ? 1.66 : 1.0) - (t.crouch ? 0.4 : 0);
       const ox = c.x + Math.sin(c.yaw) * 0.5, oy = c.y + 1.45, oz = c.z + Math.cos(c.yaw) * 0.5; let ax = t.x - ox, ay = aimY - oy, az = t.z - oz; const L = Math.hypot(ax, ay, az);
-      const err = dif.err * (1 + tsp / 8) * (s ? WEAPONS[s.key].botAcc : 1) * (d > 80 ? 1.4 : 1) / Math.max(0.6, c.aggro * 0.5 + 0.5);
+      const err = (dif.err + (t.isPlayer ? dif.perr : 0)) * (1 + tsp / 8) * (s ? WEAPONS[s.key].botAcc : 1) * (d > 80 ? 1.4 : 1) / Math.max(0.6, c.aggro * 0.5 + 0.5);
       if (!s || s.mag > 0 || c.ammo[WEAPONS[s.key].ammo] > 0) fire(c, ox, oy, oz, ax / L, ay / L, az / L, err);
       else c.ammoLow = true;
     }
@@ -127,7 +128,7 @@ function botUpdate(c, dt, near) {
     if (c.state === 'storm' || c.state === 'flee' || (c.state === 'loot' && d > 25) || c.state === 'hunt' || c.state === 'cover') { speed = 8.2; c.sprint = true; }
     if (c.state === 'roam') speed = 5.5;
     // Loot aufnehmen
-    if (c.state === 'loot' && c.goalItem && d < 1.8) {
+    if (c.state === 'loot' && c.goalItem && d < 2.2) {
       const g = c.goalItem; if (g.open === false) openChest(g, c); else if (g.alive) botPickup(c, g);
       for (const it of M.items) if (it.alive && dist2(it.x, it.z, c.x, c.z) < 16 && Math.abs(it.y - c.y) < 2 && botWants(c, it) > 0) botPickup(c, it);
       c.goalItem = null; c.ammoLow = false; c.think = 0;

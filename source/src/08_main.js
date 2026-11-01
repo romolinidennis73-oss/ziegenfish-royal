@@ -10,11 +10,11 @@ function findMenuSpot() { const a = 1.25; for (let r = 300; r < 540; r += 2) { c
 function menuCamera(dt) {
   const t = performance.now() / 1000; const m = menuChar; if (!m) return;
   // Kamera steht landeinwärts und blickt Richtung Meer, Figur rechts im Bild
-  const base = Math.atan2(-Math.sin(MENU_SPOT.face), -Math.cos(MENU_SPOT.face)); const a = base + Math.sin(t * 0.15) * 0.35, r = ZR.panel ? 4.2 : 5.0;
+  const base = Math.atan2(-Math.sin(MENU_SPOT.face), -Math.cos(MENU_SPOT.face)); const a = base + Math.sin(t * 0.15) * 0.35, r = ZR.panel ? 3.0 : 3.6;
   const cx = MENU_SPOT.x + Math.cos(a) * r, cz = MENU_SPOT.z + Math.sin(a) * r; const tx = MENU_SPOT.x - cx, tz = MENU_SPOT.z - cz, tl = Math.hypot(tx, tz); const rx = -tz / tl, rz = tx / tl;
-  const off = ZR.panel ? 1.9 : 1.5; ZR.camera.position.set(cx, MENU_SPOT.y + 1.7 + Math.sin(t * 0.3) * 0.12, cz); ZR.camera.lookAt(MENU_SPOT.x - rx * off, MENU_SPOT.y + 1.3, MENU_SPOT.z - rz * off);
+  const off = ZR.panel ? 1.25 : 1.0; ZR.camera.position.set(cx, MENU_SPOT.y + 1.45 + Math.sin(t * 0.3) * 0.08, cz); ZR.camera.lookAt(MENU_SPOT.x - rx * off, MENU_SPOT.y + 1.1, MENU_SPOT.z - rz * off);
   m.root.rotation.y = Math.atan2(cx - MENU_SPOT.x, cz - MENU_SPOT.z) + Math.sin(t * 0.4) * 0.3 - 0.35; m.c.gunKey = ZR.panel === 'weapons' ? (ZR.menuWeapon || 'ar') : 'ar'; m.c.gunRar = ZR.panel === 'weapons' ? 2 : 4;
-  m.c.pitch = Math.sin(t * 0.8) * 0.05; animateChar(m, m.c, dt); m.torso.position.y = 0.95 + Math.sin(t * 2) * 0.01;
+  m.c.pitch = Math.sin(t * 0.8) * 0.05; m.c.idle = !ZR.panel; animateChar(m, m.c, dt); m.torso.position.y = 0.95 + Math.sin(t * 2) * 0.01;
   ZR.camera.fov = 55; ZR.camera.updateProjectionMatrix(); ZR.sun.position.set(MENU_SPOT.x + 180, 260, MENU_SPOT.z + 120); ZR.sun.target.position.set(MENU_SPOT.x, 0, MENU_SPOT.z);
 }
 
@@ -51,12 +51,14 @@ function loadMatch() {
   let i = 0; const run = () => { if (i < steps.length) { steps[i](); i++; $('lbar').style.width = (i / steps.length * 100) + '%'; setTimeout(run, 120); } else setTimeout(beginLobby, 500); }; run();
 }
 function beginLobby() {
+  if (ZR.lobbyMesh) ZR.lobbyMesh.visible = true;
   M.state = 'lobby'; M.lobbyT = 15; M.time = 0; M.ended = false; M.paused = false; M.aliveCount = M.chars.length; M.stats = { wk: {}, start: performance.now() };
   BUS.active = false; BUS.m.visible = false; S.mesh && (S.mesh.visible = false);
   show('hud'); Audio.playMusic('match'); 
   $('btn-fire2').style.display = Settings.leftFire ? 'flex' : 'none';
 }
 function beginBus() {
+  if (ZR.lobbyMesh) ZR.lobbyMesh.visible = false;
   M.state = 'play'; M.time = 0; startBus(); initStorm();
   for (const c of M.chars) {
     c.mode = 'bus'; c.model.root.visible = false; c.hp = 100; c.shield = 0;
@@ -142,11 +144,11 @@ function updatePlayer(dt) {
     else if (w && w.mag === 0 && p.reloadT <= 0 && p.ammo[WEAPONS[w.key].ammo] > 0) startReload(p);
   }
   Input.firePressed = false;
-  // Zielhilfe (Touch): sanft zum Gegner nahe dem Fadenkreuz ziehen
-  if (isTouch && w && (Input.fire || p.ads)) {
-    let best = null, ba = 0.07; const cf = camForward();
-    for (const c of M.chars) { if (c === p || !c.alive || c.mode !== 'ground') continue; const dx = c.x - ZR.camera.position.x, dy = c.y + 1.2 - ZR.camera.position.y, dz = c.z - ZR.camera.position.z, L = Math.hypot(dx, dy, dz); if (L > WEAPONS[w.key].range) continue; const a = Math.acos(clamp((dx * cf.x + dy * cf.y + dz * cf.z) / L, -1, 1)); if (a < ba) { ba = a; best = c; } }
-    if (best) { const wy = Math.atan2(best.x - ZR.camera.position.x, best.z - ZR.camera.position.z); p.camYaw += angDiff(p.camYaw, wy) * Math.min(1, dt * 2.5); }
+  // Zielhilfe: Kamera zieht zum Gegner nahe dem Fadenkreuz
+  if (w && Settings.aimAssist !== 'aus' && (Input.fire || p.ads)) {
+    const strong = Settings.aimAssist === 'stark'; let best = null, ba = (strong ? 14 : 6) * DEG; const cf = camForward(); const cp = ZR.camera.position;
+    for (const c of M.chars) { if (c === p || !c.alive || c.mode !== 'ground') continue; const dx = c.x - cp.x, dy = c.y + 1.2 - cp.y, dz = c.z - cp.z, L = Math.hypot(dx, dy, dz); if (L > WEAPONS[w.key].range * 1.3) continue; const a = Math.acos(clamp((dx * cf.x + dy * cf.y + dz * cf.z) / L, -1, 1)); if (a < ba) { ba = a; best = c; } }
+    if (best) { const k = Math.min(1, dt * (strong ? 7 : 3)); const wy = Math.atan2(best.x - cp.x, best.z - cp.z); const wp = Math.atan2(best.y + 1.2 - cp.y, Math.hypot(best.x - cp.x, best.z - cp.z)); p.camYaw += angDiff(p.camYaw, wy) * k; p.camPitch += (wp - p.camPitch) * k; }
   }
 }
 function camForward() { const p = M.player; const cp = Math.cos(p.camPitch); return _f.set(Math.sin(p.camYaw) * cp, Math.sin(p.camPitch), Math.cos(p.camYaw) * cp); }
@@ -195,18 +197,19 @@ function endMatch(win) {
   const lv = addXP(xp); saveProfile();
   win ? Audio.victory() : Audio.defeat(); Audio.playMusic('menu');
   const e = $('end'); e.className = win ? 'win' : 'lose';
-  $('endtitle').innerHTML = win ? 'SIEG!<small>Halb Ziege. Halb Fisch. 100 % Sieg.</small>' : 'ELIMINIERT<small>' + (p.lastAtt ? 'von ' + esc(p.lastAtt.name) : 'vom Sturm erwischt') + '</small>';
+  $('endtitle').innerHTML = win ? 'ZIEGENFISCH-SIEG!<small>Halb Ziege. Halb Fisch. 100 % Sieg.</small>' : 'ELIMINIERT<small>' + (p.lastAtt ? 'von ' + esc(p.lastAtt.name) : 'vom Sturm erwischt') + '</small>';
   const t = Math.floor(surv / 60) + ':' + String(surv % 60).padStart(2, '0');
   $('endstats').innerHTML = [['Platzierung', '#' + place], ['Eliminierungen', p.kills], ['Überlebt', t], ['Schaden', Math.round(p.dmgDone)], ['Erfahrung', '+' + xp + ' XP']].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('') + (lv ? `<div class="lvup">LEVEL UP! Jetzt Level ${P.level}</div>` : '');
   setTimeout(() => show('end'), 50);
 }
-function backToMenu() { clearMatch(); M.state = 'menu'; M.player = null; BUS.m.visible = false; if (S.mesh) S.mesh.visible = false; show('menu'); refreshMenu(); Audio.playMusic('menu'); ZR.panel = null; }
+function backToMenu() { if (ZR.lobbyMesh) ZR.lobbyMesh.visible = false; clearMatch(); M.state = 'menu'; M.player = null; BUS.m.visible = false; if (S.mesh) S.mesh.visible = false; show('menu'); refreshMenu(); Audio.playMusic('menu'); ZR.panel = null; }
 
 // ---------------- Hauptschleife ----------------
 let last = performance.now(), fpsAcc = 0, fpsN = 0, hudT = 0, mmT = 0, itemT = 0, simAcc = 0;
 function loop(now) {
   requestAnimationFrame(loop); let dt = Math.min(0.05, (now - last) / 1000); last = now;
   fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { $('fps').textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
+  updateEnv(dt, M.player && !ZR.menuVisible ? M.player.x : MENU_SPOT.x, M.player && !ZR.menuVisible ? M.player.z : MENU_SPOT.z);
   if (ZR.menuVisible || M.state === 'menu') { menuCamera(dt); FX.update(dt); ZR.renderer.render(ZR.scene, ZR.camera); return; }
   if (M.state === 'lobby' || M.state === 'play' || M.state === 'end') { if (!M.paused) step(dt); }
   ZR.renderer.render(ZR.scene, ZR.camera);

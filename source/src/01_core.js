@@ -30,7 +30,7 @@ const Store = {
 
 const DEFAULT_SETTINGS = {
   music: 0.5, sfx: 0.8, camSens: 1.0, joySens: 1.0, quality: 'hoch', autoFire: false,
-  showFps: false, controlHelp: true, difficulty: 'mittel', duration: 'kurz', leftFire: true
+  showFps: false, controlHelp: true, aimAssist: 'stark', difficulty: 'mittel', duration: 'kurz', leftFire: true
 };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 function saveSettings() { Store.set('settings', Settings); }

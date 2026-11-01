@@ -64,13 +64,21 @@ const UI = {
   hitmarker(head) { const h = $('hitm'); h.className = 'show' + (head ? ' head' : ''); clearTimeout(this._hm); this._hm = setTimeout(() => h.className = '', 140); },
   hurt(att) { this.hurtT = 0.6; if (att && M.player) { const a = Math.atan2(att.x - M.player.x, att.z - M.player.z) - M.player.camYaw; const el = $('hurtdir'); el.style.transform = `rotate(${-a}rad)`; el.style.opacity = 1; clearTimeout(this._hd); this._hd = setTimeout(() => el.style.opacity = 0, 900); } },
   kick(w) { M.player.recoilP = Math.min(0.12, (M.player.recoilP || 0) + (w.scope ? 0.06 : w.pellets ? 0.05 : 0.014)); FX.shake = Math.max(FX.shake, w.pellets || w.scope ? 0.35 : 0.12); },
-  toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(this._t); this._t = setTimeout(() => e.classList.remove('show'), 1500); },
+  toast(t, col) { const e = $('toast'); e.textContent = t; e.style.color = col || ''; e.classList.add('show'); clearTimeout(this._t); this._t = setTimeout(() => e.classList.remove('show'), 1500); },
   banner(t, kind) { const e = $('banner'); e.textContent = t; e.className = 'show ' + (kind || ''); clearTimeout(this._b); this._b = setTimeout(() => e.className = '', 2400); },
   feed(k, v, wkey, how) {
     const host = $('feed'); const e = document.createElement('div'); e.className = 'fi' + (k && k.isPlayer || v.isPlayer ? ' me' : '');
     const wn = wkey === 'faust' ? 'Faust' : wkey === 'sturm' ? 'Sturm' : itemName(wkey || '');
-    e.innerHTML = how ? `<b>${esc(v.name)}</b> ist ${how}` : `<b>${esc(k.name)}</b> <span class="w">[${esc(wn)}]</span> <b>${esc(v.name)}</b>`;
+    const verb = pick(['hat', 'hat', 'hat']) + ' ' + esc(v.name) + ' ' + pick(['eingefischt', 'weggemeckert', 'filetiert', 'umgehornt', 'ausgeknipst', 'in den Sturm geschickt', 'zur Fischsuppe gemacht', 'vom Bock gestoßen']);
+    e.innerHTML = how ? `<b>${esc(v.name)}</b> ist ${how}` : `<b>${esc(k.name)}</b> <span class="w">[${esc(wn)}]</span> ${verb.replace(esc(v.name), '<b>' + esc(v.name) + '</b>')}`;
     host.prepend(e); setTimeout(() => e.remove(), 6000); while (host.children.length > 5) host.lastChild.remove();
+  },
+  killPop(p) {
+    const now = M.time; p.streak = now - (p.lastKillT || -99) < 8 ? (p.streak || 1) + 1 : 1; p.lastKillT = now;
+    const names = { 2: 'DOPPEL-KILL!', 3: 'TRIPLE-KILL!', 4: 'ZIEGEN-RAMPAGE!', 5: 'FISCH-FRENZY!' };
+    const el = $('killpop'); el.innerHTML = `<b>+1</b> ELIM<small>${p.kills} Eliminierung${p.kills === 1 ? '' : 'en'}</small>` + (p.streak > 1 ? `<i>${names[Math.min(p.streak, 5)]}</i>` : '');
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); const k = $('kills').parentNode; k.classList.remove('pulse'); void k.offsetWidth; k.classList.add('pulse');
+    if (p.streak > 1) setTimeout(() => Audio.chest(), 250);
   },
   updateHUD(dt) {
     const p = M.player; if (!p) return;
@@ -86,7 +94,7 @@ const UI = {
     if (sig !== this.slotSig) {
       this.slotSig = sig; const host = $('slots'); host.innerHTML = '';
       p.slots.forEach((s, i) => {
-        const d = document.createElement('div'); d.className = 'slot' + (i === p.sel ? ' sel' : ''); if (s) d.style.setProperty('--rc', RARITY[s.rar || 0].col);
+        const d = document.createElement('div'); d.className = 'slot' + (i === p.sel ? ' sel' : '') + (s ? ' full' : ''); if (s) d.style.setProperty('--rc', RARITY[s.rar || 0].col);
         d.innerHTML = s ? `<div class="ic ${s.key}"></div><div class="sn">${esc(WEAPONS[s.key] ? WEAPONS[s.key].en : ITEMS[s.key].name)}</div>${s.n != null ? `<div class="cnt">${s.n}</div>` : ''}` : `<div class="sn">${i + 1}</div>`;
         d.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); selectSlot(i); }); host.appendChild(d);
       });
@@ -200,6 +208,7 @@ function buildSettings(body) {
   const choice = (key, label, opts, after) => { const d = row(label, opts.map(o => `<button class="ch ${Settings[key] === o[0] ? 'on' : ''}" data-v="${o[0]}">${o[1]}</button>`).join('')); d.querySelectorAll('button').forEach(b => b.onclick = () => { Settings[key] = b.dataset.v; saveSettings(); d.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); Audio.ui(); if (after) after(); refreshMenu(); }); };
   slider('music', 'Musiklautstärke', 0, 1, 0.05); slider('sfx', 'Soundeffekte', 0, 1, 0.05); slider('camSens', 'Kameraempfindlichkeit', 0.3, 2.5, 0.1); slider('joySens', 'Steuerungsempfindlichkeit (Joystick)', 0.6, 1.6, 0.1);
   choice('quality', 'Grafikqualität', [['niedrig', 'Niedrig'], ['mittel', 'Mittel'], ['hoch', 'Hoch']], applyQuality);
+  choice('aimAssist', 'Zielhilfe', [['aus', 'Aus'], ['normal', 'Normal'], ['stark', 'Stark']]);
   choice('difficulty', 'Bot-Schwierigkeit', [['leicht', 'Leicht'], ['mittel', 'Mittel'], ['schwer', 'Schwer']]);
   choice('duration', 'Matchdauer', [['kurz', '8–10 Min.'], ['lang', '~15 Min.']]);
   toggle('autoFire', 'Automatisches Schießen'); toggle('showFps', 'FPS-Anzeige'); toggle('controlHelp', 'Steuerungshilfe (Beschriftungen & Tipps)'); toggle('leftFire', 'Zweiter Feuerknopf links');

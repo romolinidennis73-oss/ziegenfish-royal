@@ -13,7 +13,7 @@ const BOT_SKINS = [];
 (function () {
   const tops = [0xb03a2e, 0x2e6eb0, 0x2e9b54, 0xd99a2b, 0x6d6d6d, 0x7a3fa0, 0xc0c0c0, 0x8a5a2b, 0x1f7a7a, 0x9b2d5c];
   const hats = ['helmet', 'beanie', 'hood', 'mohawk', 'scarf', 'cap', null];
-  for (let i = 0; i < 14; i++) BOT_SKINS.push({ skin: pick([0xf0c8a8, 0xd8a882, 0xb07a52, 0x8d6a52, 0x6a4a36]), top: pick(tops), top2: pick(tops), pants: pick([0x2f3237, 0x3f4a33, 0x8a6b45, 0x1b2a44, 0x444444]), boots: 0x1a1a1a, accent: pick(tops), hat: pick(hats), vest: Math.random() < 0.4, goggles: Math.random() < 0.3 });
+  for (let i = 0; i < 14; i++) BOT_SKINS.push({ skin: pick([0xf0c8a8, 0xd8a882, 0xb07a52, 0x8d6a52, 0x6a4a36]), top: pick(tops), top2: pick(tops), pants: pick([0x2f3237, 0x3f4a33, 0x8a6b45, 0x1b2a44, 0x444444]), boots: 0x1a1a1a, accent: pick(tops), hat: pick(hats), vest: Math.random() < 0.4, goggles: Math.random() < 0.3, hair: pick([0x2b1b10, 0x111111, 0x6b4423, 0xc9a35c, 0x8a3a1a]) });
 })();
 
 const GLIDERS = { flosse: { name: 'Fischflosse', col: 0x16a3b5, col2: 0xf2c230 }, adler: { name: 'Steinadler', col: 0x6b4a2b, col2: 0xe8e0d0 }, neon: { name: 'Neon-Drache', col: 0xff2bd6, col2: 0x2bf5ff }, tarn: { name: 'Tarnflügel', col: 0x4b5a3a, col2: 0x2a2418 } };
@@ -29,46 +29,62 @@ const bx = (b, cx, cy, cz, w, h, d, col) => b.box(cx - w / 2, cy - h / 2, cz - d
 const charGeoCache = new Map();
 function charGeos(S) {
   if (charGeoCache.has(S)) return charGeoCache.get(S);
-  const G = {};
-  G.leg = partGeo(b => { bx(b, 0, -0.25, 0, 0.19, 0.5, 0.21, S.pants); bx(b, 0, -0.66, 0, 0.17, 0.42, 0.19, S.pants); bx(b, 0, -0.9, 0.04, 0.2, 0.12, 0.28, S.boots); if (S.vest) bx(b, 0, -0.5, 0.09, 0.2, 0.12, 0.06, S.accent); });
-  G.torso = partGeo((b, gl) => {
-    bx(b, 0, 0.06, 0, 0.42, 0.14, 0.24, S.pants); bx(b, 0, 0.36, 0, 0.5, 0.5, 0.27, S.top); bx(b, 0, 0.12, 0, 0.46, 0.06, 0.26, 0x2a2a2a);
-    bx(b, 0, 0.36, -0.2, 0.36, 0.42, 0.14, S.top2); // Rucksack
-    if (S.vest) { bx(b, 0, 0.36, 0.12, 0.46, 0.4, 0.06, S.top2); bx(b, -0.12, 0.3, 0.16, 0.1, 0.12, 0.04, S.accent); bx(b, 0.12, 0.3, 0.16, 0.1, 0.12, 0.04, S.accent); }
-    bx(b, 0, 0.5, 0.14, 0.5, 0.05, 0.02, S.accent);
-    if (S.fin) { for (let i = 0; i < 4; i++) bx(gl, 0, 0.25 + i * 0.1, -0.3 - i * 0.03, 0.04, 0.12, 0.14 + i * 0.05, S.glow); bx(b, 0, 0.45, 0.145, 0.16, 0.16, 0.02, S.accent); }
-    if (S.glow && !S.fin) { bx(gl, -0.2, 0.36, 0.14, 0.03, 0.45, 0.02, S.glow); bx(gl, 0.2, 0.36, 0.14, 0.03, 0.45, 0.02, S.glow); bx(gl, 0, 0.36, -0.28, 0.25, 0.05, 0.02, S.glow); }
+  const G = {}; const hair = S.hair || 0x3a2a1a; const dk = 0x1e1e22;
+  // Bein: Pivot an der Hüfte, hängt nach unten
+  G.leg = partGeo(b => {
+    b.tube(0, 0.02, 0, 0, -0.46, 0.01, 0.105, 0.085, S.pants); b.ell(0, -0.46, 0.012, 0.085, 0.085, 0.085, S.pants, 10, 6);
+    b.tube(0, -0.46, 0.01, 0, -0.84, -0.01, 0.083, 0.066, S.pants); b.ell(0, 0.0, 0, 0.11, 0.08, 0.11, S.pants, 10, 6);
+    b.ell(0, -0.885, 0.045, 0.085, 0.075, 0.15, S.boots, 12, 8); b.tube(0, -0.84, -0.01, 0, -0.9, 0.0, 0.072, 0.075, S.boots, 10);
+    if (S.vest) b.ell(0, -0.46, 0.07, 0.07, 0.07, 0.045, S.accent, 8, 6);
   });
-  G.arm = partGeo(b => { bx(b, 0, -0.18, 0, 0.15, 0.36, 0.16, S.top); bx(b, 0, -0.45, 0, 0.13, 0.26, 0.14, S.top2); bx(b, 0, -0.62, 0, 0.12, 0.12, 0.12, S.skin); if (S.accent) bx(b, 0, -0.06, 0, 0.17, 0.08, 0.18, S.accent); });
+  G.torso = partGeo((b, gl) => {
+    b.ell(0, 0.08, 0, 0.2, 0.13, 0.13, S.pants, 14, 8);
+    b.tube(0, 0.1, 0, 0, 0.32, 0, 0.165, 0.2, S.top, 14); b.ell(0, 0.42, 0, 0.245, 0.17, 0.14, S.top, 16, 10);
+    b.tube(0, 0.155, 0, 0, 0.19, 0, 0.18, 0.182, dk, 14); b.ell(0.09, 0.17, 0.155, 0.035, 0.03, 0.02, 0xb8a060, 6, 4);
+    for (const sx of [-1, 1]) b.ell(sx * 0.24, 0.5, 0, 0.09, 0.085, 0.09, S.top, 10, 6);
+    b.ell(0, 0.4, -0.2, 0.17, 0.2, 0.085, S.top2, 12, 8); b.tube(-0.12, 0.55, -0.12, -0.12, 0.25, -0.16, 0.022, 0.022, dk, 6); b.tube(0.12, 0.55, -0.12, 0.12, 0.25, -0.16, 0.022, 0.022, dk, 6); // Rucksack + Gurte
+    if (S.vest) { b.ell(0, 0.38, 0.06, 0.235, 0.19, 0.12, S.top2, 14, 8); for (const sx of [-0.1, 0.1]) b.ell(sx, 0.3, 0.165, 0.055, 0.06, 0.03, S.accent, 8, 6); }
+    if (S.fin) { for (let i = 0; i < 5; i++) gl.ell(0, 0.2 + i * 0.09, -0.29 - i * 0.025, 0.018, 0.07, 0.07 + i * 0.022, S.glow, 8, 6); b.ell(0, 0.46, 0.13, 0.08, 0.08, 0.02, S.accent, 10, 6); }
+    if (S.glow && !S.fin) { gl.tube(-0.17, 0.2, 0.15, -0.19, 0.5, 0.13, 0.014, 0.014, S.glow, 6); gl.tube(0.17, 0.2, 0.15, 0.19, 0.5, 0.13, 0.014, 0.014, S.glow, 6); gl.tube(-0.15, 0.4, -0.29, 0.15, 0.4, -0.29, 0.015, 0.015, S.glow, 6); }
+    b.tube(0, 0.55, 0, 0, 0.66, 0, 0.065, 0.06, S.skin, 10);
+  });
+  G.arm = partGeo(b => {
+    b.tube(0, 0, 0, 0, -0.29, 0.0, 0.075, 0.064, S.top, 10); b.ell(0, -0.295, 0, 0.064, 0.064, 0.064, S.top, 8, 6);
+    b.tube(0, -0.295, 0, 0, -0.55, 0.01, 0.06, 0.05, S.top2, 10); b.ell(0, -0.55, 0.01, 0.052, 0.03, 0.052, S.accent || S.top2, 8, 4);
+    b.ell(0, -0.62, 0.012, 0.045, 0.07, 0.05, S.skin, 10, 6); b.ell(0.03, -0.6, 0.045, 0.02, 0.035, 0.02, S.skin, 6, 4);
+  });
   G.head = partGeo((b, gl) => {
-    bx(b, 0, 0.04, 0, 0.12, 0.08, 0.12, S.skin); bx(b, 0, 0.2, 0, 0.27, 0.3, 0.27, S.skin);
-    bx(b, -0.06, 0.24, 0.136, 0.05, 0.035, 0.01, 0x111111); bx(b, 0.06, 0.24, 0.136, 0.05, 0.035, 0.01, 0x111111);
-    if (S.mask) bx(b, 0, 0.13, 0.13, 0.28, 0.12, 0.04, 0x2a2a2a);
-    if (S.goggles) { bx(b, 0, 0.25, 0.14, 0.3, 0.09, 0.03, 0x333333); bx(gl, -0.07, 0.25, 0.155, 0.09, 0.06, 0.01, S.glow || 0xff9a3c); bx(gl, 0.07, 0.25, 0.155, 0.09, 0.06, 0.01, S.glow || 0xff9a3c); }
-    if (S.visor) bx(gl, 0, 0.24, 0.14, 0.26, 0.06, 0.02, S.glow);
+    b.ell(0, 0.19, 0.005, 0.125, 0.15, 0.135, S.skin, 16, 12);
+    for (const sx of [-1, 1]) { b.ell(sx * 0.05, 0.215, 0.118, 0.026, 0.018, 0.012, 0xffffff, 8, 6); b.ell(sx * 0.05, 0.215, 0.128, 0.012, 0.012, 0.006, 0x1a1a1a, 6, 4); b.ell(sx * 0.05, 0.248, 0.118, 0.03, 0.008, 0.01, hair, 6, 4); b.ell(sx * 0.126, 0.195, 0, 0.022, 0.035, 0.02, S.skin, 6, 4); }
+    b.ell(0, 0.175, 0.138, 0.018, 0.028, 0.02, S.skin, 8, 6); b.ell(0, 0.125, 0.122, 0.035, 0.009, 0.01, 0x8a4a40, 8, 4);
+    if (!S.hat || S.hat === 'mohawk' || S.hat === 'horns' || S.hat === 'cap') b.ell(0, 0.24, -0.012, 0.13, 0.12, 0.14, hair, 14, 8, 0.55);
+    if (S.mask) b.ell(0, 0.12, 0.06, 0.13, 0.07, 0.1, 0x2a2a2a, 12, 6);
+    if (S.goggles) { b.tube(-0.13, 0.225, 0.04, 0.13, 0.225, 0.04, 0.03, 0.03, 0x333333, 8); for (const sx of [-1, 1]) gl.ell(sx * 0.055, 0.225, 0.13, 0.042, 0.032, 0.02, S.glow || 0xff9a3c, 10, 6); }
+    if (S.visor) gl.ell(0, 0.22, 0.1, 0.12, 0.035, 0.05, S.glow, 14, 6);
     switch (S.hat) {
-      case 'helmet': bx(b, 0, 0.37, 0, 0.32, 0.1, 0.32, S.accent || 0x4b5a3a); bx(b, 0, 0.31, 0.02, 0.33, 0.06, 0.33, S.top2); break;
-      case 'beanie': bx(b, 0, 0.37, 0, 0.29, 0.12, 0.29, S.top2); break;
-      case 'hood': bx(b, 0, 0.3, -0.03, 0.31, 0.3, 0.3, S.top); bx(b, 0, 0.42, -0.02, 0.29, 0.08, 0.28, S.top); break;
-      case 'mohawk': bx(gl, 0, 0.42, -0.02, 0.06, 0.14, 0.28, S.accent); break;
-      case 'scarf': bx(b, 0, 0.36, 0, 0.3, 0.1, 0.3, S.top); bx(b, 0, 0.1, 0.02, 0.3, 0.1, 0.3, S.accent); break;
-      case 'cap': bx(b, 0, 0.37, 0, 0.29, 0.08, 0.29, S.accent); bx(b, 0, 0.34, 0.18, 0.24, 0.03, 0.14, S.accent); break;
-      case 'horns': // Ziegenhörner
-        for (const s of [-1, 1]) { bx(b, s * 0.12, 0.38, -0.02, 0.07, 0.12, 0.07, 0xe8dcc0); bx(b, s * 0.16, 0.46, -0.07, 0.06, 0.1, 0.06, 0xd8ccb0); bx(b, s * 0.19, 0.5, -0.14, 0.05, 0.08, 0.08, 0xc8bc9f); }
-        bx(b, 0, 0.36, 0, 0.29, 0.06, 0.29, S.top); bx(b, 0, 0.02, 0.12, 0.08, 0.1, 0.05, 0xe8dcc0); // Bärtchen
+      case 'helmet': b.ell(0, 0.25, 0, 0.15, 0.13, 0.16, S.accent || 0x4b5a3a, 16, 8, 0.55); b.tube(-0.15, 0.24, 0, 0.15, 0.24, 0, 0.012, 0.012, S.top2, 6); break;
+      case 'beanie': b.ell(0, 0.25, -0.005, 0.138, 0.14, 0.145, S.top2, 14, 8, 0.6); b.ell(0, 0.4, -0.01, 0.035, 0.035, 0.035, S.accent, 8, 6); break;
+      case 'hood': b.ell(0, 0.21, -0.02, 0.155, 0.18, 0.16, S.top, 16, 10, 0.62); b.ell(0, 0.08, -0.02, 0.16, 0.06, 0.15, S.top, 12, 6); break;
+      case 'mohawk': for (let i = 0; i < 6; i++) gl.ell(0, 0.33 + Math.sin(i / 5 * Math.PI) * 0.03, 0.09 - i * 0.04, 0.02, 0.05, 0.025, S.accent, 6, 4); break;
+      case 'scarf': b.ell(0, 0.25, -0.005, 0.14, 0.13, 0.148, S.top, 14, 8, 0.6); b.tube(0, 0.05, 0, 0, 0.1, 0, 0.11, 0.12, S.accent, 12); b.ell(0.05, 0.03, -0.12, 0.05, 0.08, 0.02, S.accent, 6, 4); break;
+      case 'cap': b.ell(0, 0.27, 0, 0.135, 0.09, 0.145, S.accent, 14, 8, 0.5); b.ell(0, 0.27, 0.13, 0.11, 0.012, 0.09, S.accent, 12, 4); break;
+      case 'horns': // geschwungene Ziegenhörner
+        for (const sx of [-1, 1]) { let x = sx * 0.07, y = 0.31, z = 0.0; for (let i = 0; i < 7; i++) { const r = 0.04 - i * 0.004; b.ell(x, y, z, r, r, r, i < 2 ? 0xe8dcc0 : i < 5 ? 0xd8ccb0 : 0xbfb295, 8, 6); x += sx * 0.018; y += 0.035 - i * 0.008; z -= 0.03 + i * 0.004; } }
+        b.ell(0, 0.035, 0.105, 0.03, 0.05, 0.025, 0xe8dcc0, 8, 6); // Bärtchen
+        for (const sx of [-1, 1]) gl.ell(sx * 0.13, 0.15, 0.02, 0.006, 0.03, 0.02, S.glow, 6, 4); // Kiemen
         break;
     }
   });
   charGeoCache.set(S, G); return G;
 }
 function makeCharacter(S, isPlayer) {
-  const G = charGeos(S); const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.05 });
+  const G = charGeos(S); const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.05 });
   const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
   const mk = (pg, parent, x, y, z) => { const g = new THREE.Group(); g.position.set(x, y, z); if (pg.main) { const m = new THREE.Mesh(pg.main, mat); m.castShadow = true; g.add(m); } if (pg.glow) g.add(new THREE.Mesh(pg.glow, glowMat)); parent.add(g); return g; };
   const root = new THREE.Group(); const body = new THREE.Group(); root.add(body);
   const torso = mk(G.torso, body, 0, 0.95, 0); const head = mk(G.head, torso, 0, 0.62, 0);
-  const armL = mk(G.arm, torso, -0.33, 0.56, 0), armR = mk(G.arm, torso, 0.33, 0.56, 0);
-  const legL = mk(G.leg, body, -0.12, 0.95, 0), legR = mk(G.leg, body, 0.12, 0.95, 0);
+  const armL = mk(G.arm, torso, -0.3, 0.52, 0), armR = mk(G.arm, torso, 0.3, 0.52, 0);
+  const legL = mk(G.leg, body, -0.11, 0.93, 0), legR = mk(G.leg, body, 0.11, 0.93, 0);
   const hand = new THREE.Group(); hand.position.set(0, -0.6, 0.02); hand.rotation.x = Math.PI / 2; armR.add(hand);
   return { root, body, torso, head, armL, armR, legL, legR, hand, mat, gun: null, gunKey: null, t: Math.random() * 10 };
 }
@@ -84,6 +100,7 @@ function animateChar(m, c, dt) {
   else if (c.skydive) { m.armL.rotation.set(-0.3, 0, -1.3); m.armR.rotation.set(-0.3, 0, 1.3); m.legL.rotation.x = 0.4; m.legR.rotation.x = 0.2; m.body.rotation.x = 1.1; }
   else if (c.reloadT > 0) { const r = Math.sin(c.reloadT * 8); m.armR.rotation.set(-1.2, 0, 0); m.armL.rotation.set(-0.6 + r * 0.4, 0.3, 0.2); }
   else if (c.healT > 0) { m.armR.rotation.set(-1.0 + Math.sin(m.t * 3) * 0.2, 0, 0); m.armL.rotation.set(-1.0, 0, 0); }
+  else if (hasGun && c.idle) { m.armR.rotation.set(-0.75, 0, 0.2); m.armL.rotation.set(-1.05, 0.65, 0); }
   else if (hasGun && !(c.sprint && sp > 6)) { m.armR.rotation.set(-Math.PI / 2 - aimP - recoil * 0.3 + crouch * -0.35, 0, 0); m.armL.rotation.set(-Math.PI / 2 - aimP + 0.15 - recoil * 0.3 + crouch * -0.35, 0.55, 0); }
   else { m.armL.rotation.set(-sw * 0.8, 0, -0.08); m.armR.rotation.set(sw * 0.8, 0, 0.08); }
   if (!c.skydive) m.body.rotation.x = 0;
@@ -128,20 +145,20 @@ function itemGeo(key, rar) {
   const R = RARITY[rar].hex, dk = 0x26282c, md = 0x45484e, wd = 0x7a5232;
   const pg = partGeo((b, gl) => {
     switch (key) {
-      case 'ar': bx(b, 0, 0, 0.25, 0.08, 0.13, 0.6, md); bx(b, 0, 0.02, 0.68, 0.04, 0.04, 0.3, dk); bx(b, 0, -0.13, 0.25, 0.06, 0.18, 0.09, dk); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, -0.01, -0.15, 0.07, 0.11, 0.25, R); bx(b, 0, 0.1, 0.25, 0.04, 0.05, 0.16, dk); bx(gl, 0, 0.1, 0.17, 0.02, 0.02, 0.01, 0xff3030); break;
-      case 'tac': bx(b, 0, 0, 0.25, 0.1, 0.15, 0.55, 0x2f3440); bx(b, 0, 0.02, 0.62, 0.05, 0.05, 0.25, dk); bx(b, 0, -0.14, 0.32, 0.07, 0.2, 0.1, R); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, 0, -0.12, 0.08, 0.13, 0.2, dk); bx(b, 0, 0.12, 0.24, 0.07, 0.08, 0.22, R); bx(gl, 0, 0.12, 0.355, 0.04, 0.04, 0.01, 0x7fd0ff); break;
-      case 'smg': bx(b, 0, 0, 0.15, 0.08, 0.14, 0.4, md); bx(b, 0, 0.0, 0.42, 0.04, 0.04, 0.14, dk); bx(b, 0, -0.17, 0.2, 0.05, 0.25, 0.07, R); bx(b, 0, -0.08, 0.0, 0.06, 0.14, 0.07, dk); bx(b, 0, 0.02, -0.1, 0.03, 0.05, 0.14, dk); break;
+      case 'ar': bx(b, 0, 0, 0.25, 0.08, 0.13, 0.6, md); b.tube(0, 0.02, 0.5, 0, 0.02, 0.86, 0.022, 0.02, dk, 8); b.tube(0, 0.02, 0.5, 0, 0.02, 0.62, 0.035, 0.035, md, 8); bx(b, 0, -0.13, 0.25, 0.06, 0.18, 0.09, dk); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, -0.01, -0.15, 0.07, 0.11, 0.25, R); bx(b, 0, 0.1, 0.25, 0.04, 0.05, 0.16, dk); bx(gl, 0, 0.1, 0.17, 0.02, 0.02, 0.01, 0xff3030); break;
+      case 'tac': bx(b, 0, 0, 0.25, 0.1, 0.15, 0.55, 0x2f3440); b.tube(0, 0.02, 0.5, 0, 0.02, 0.78, 0.028, 0.025, dk, 8); bx(b, 0, -0.14, 0.32, 0.07, 0.2, 0.1, R); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, 0, -0.12, 0.08, 0.13, 0.2, dk); b.tube(0, 0.13, 0.13, 0, 0.13, 0.35, 0.035, 0.04, R, 10); gl.ell(0, 0.13, 0.352, 0.032, 0.032, 0.006, 0x7fd0ff, 8, 4); break;
+      case 'smg': bx(b, 0, 0, 0.15, 0.08, 0.14, 0.4, md); b.tube(0, 0, 0.35, 0, 0, 0.5, 0.022, 0.02, dk, 8); bx(b, 0, -0.17, 0.2, 0.05, 0.25, 0.07, R); bx(b, 0, -0.08, 0.0, 0.06, 0.14, 0.07, dk); bx(b, 0, 0.02, -0.1, 0.03, 0.05, 0.14, dk); break;
       case 'rsmg': bx(b, 0, 0, 0.15, 0.11, 0.16, 0.36, 0x3a3f4a); bx(b, 0, 0.0, 0.38, 0.05, 0.05, 0.12, dk); bx(b, 0.08, -0.02, 0.2, 0.08, 0.1, 0.2, R); bx(b, 0, -0.08, 0.0, 0.06, 0.14, 0.07, dk); bx(b, 0, 0.11, 0.15, 0.06, 0.04, 0.1, R); break;
-      case 'pump': bx(b, 0, 0, 0.2, 0.08, 0.1, 0.5, md); bx(b, 0, 0.02, 0.6, 0.05, 0.05, 0.35, dk); bx(b, 0, -0.06, 0.48, 0.08, 0.07, 0.2, wd); bx(b, 0, -0.06, -0.12, 0.07, 0.14, 0.3, wd); bx(b, 0, -0.08, 0.03, 0.05, 0.12, 0.06, dk); bx(b, 0, 0.06, 0.2, 0.08, 0.02, 0.3, R); break;
+      case 'pump': bx(b, 0, 0, 0.2, 0.08, 0.1, 0.5, md); b.tube(0, 0.02, 0.42, 0, 0.02, 0.8, 0.028, 0.028, dk, 10); b.tube(0, -0.05, 0.38, 0, -0.05, 0.6, 0.035, 0.035, wd, 10); bx(b, 0, -0.06, -0.12, 0.07, 0.14, 0.3, wd); bx(b, 0, -0.08, 0.03, 0.05, 0.12, 0.06, dk); bx(b, 0, 0.06, 0.2, 0.08, 0.02, 0.3, R); break;
       case 'tsg': bx(b, 0, 0, 0.22, 0.1, 0.13, 0.55, 0x22252b); bx(b, 0, 0.0, 0.6, 0.07, 0.07, 0.25, dk); bx(b, 0, -0.1, 0.4, 0.07, 0.1, 0.2, R); bx(b, 0, -0.08, 0.03, 0.06, 0.14, 0.07, dk); bx(b, 0, 0, -0.12, 0.06, 0.1, 0.22, R); break;
-      case 'bolt': bx(b, 0, 0, 0.3, 0.07, 0.1, 0.8, wd); bx(b, 0, 0.02, 0.88, 0.035, 0.035, 0.45, dk); bx(b, 0, 0.11, 0.3, 0.06, 0.06, 0.34, dk); bx(b, 0, 0.11, 0.48, 0.08, 0.08, 0.04, R); bx(b, 0, 0.11, 0.12, 0.08, 0.08, 0.04, R); bx(b, 0.06, 0.03, 0.18, 0.08, 0.02, 0.02, md); bx(b, 0, -0.07, -0.15, 0.07, 0.16, 0.25, wd); bx(gl, 0, 0.11, 0.505, 0.05, 0.05, 0.01, 0x9fe1ff); break;
-      case 'semi': bx(b, 0, 0, 0.3, 0.08, 0.12, 0.75, 0x3c4048); bx(b, 0, 0.02, 0.85, 0.04, 0.04, 0.35, dk); bx(b, 0, 0.12, 0.28, 0.07, 0.07, 0.32, dk); bx(b, 0, -0.14, 0.32, 0.06, 0.16, 0.12, R); bx(b, 0, -0.06, -0.15, 0.07, 0.15, 0.25, R); bx(gl, 0, 0.12, 0.445, 0.05, 0.05, 0.01, 0x9fe1ff); break;
+      case 'bolt': bx(b, 0, 0, 0.3, 0.07, 0.1, 0.8, wd); b.tube(0, 0.02, 0.66, 0, 0.02, 1.1, 0.02, 0.017, dk, 8); b.tube(0, 0.12, 0.13, 0, 0.12, 0.47, 0.03, 0.03, dk, 10); b.tube(0, 0.12, 0.43, 0, 0.12, 0.5, 0.04, 0.045, R, 10); b.tube(0, 0.12, 0.1, 0, 0.12, 0.16, 0.042, 0.035, R, 10); bx(b, 0.06, 0.03, 0.18, 0.08, 0.02, 0.02, md); bx(b, 0, -0.07, -0.15, 0.07, 0.16, 0.25, wd); bx(gl, 0, 0.11, 0.505, 0.05, 0.05, 0.01, 0x9fe1ff); break;
+      case 'semi': bx(b, 0, 0, 0.3, 0.08, 0.12, 0.75, 0x3c4048); b.tube(0, 0.02, 0.66, 0, 0.02, 1.02, 0.022, 0.02, dk, 8); b.tube(0, 0.12, 0.12, 0, 0.12, 0.44, 0.032, 0.038, dk, 10); bx(b, 0, -0.14, 0.32, 0.06, 0.16, 0.12, R); bx(b, 0, -0.06, -0.15, 0.07, 0.15, 0.25, R); bx(gl, 0, 0.12, 0.445, 0.05, 0.05, 0.01, 0x9fe1ff); break;
       case 'pistol': bx(b, 0, 0.02, 0.1, 0.06, 0.08, 0.24, md); bx(b, 0, -0.08, 0.02, 0.055, 0.15, 0.07, dk); bx(b, 0, 0.06, 0.1, 0.05, 0.02, 0.22, R); break;
-      case 'granate': bx(b, 0, 0, 0, 0.13, 0.15, 0.13, 0x4b5a3a); bx(b, 0, 0.1, 0, 0.05, 0.05, 0.05, md); bx(b, 0.05, 0.1, 0, 0.07, 0.02, 0.02, R); break;
+      case 'granate': b.ell(0, 0, 0, 0.07, 0.085, 0.07, 0x4b5a3a, 10, 8); bx(b, 0, 0.1, 0, 0.05, 0.05, 0.05, md); bx(b, 0.05, 0.1, 0, 0.07, 0.02, 0.02, R); break;
       case 'medkit': bx(b, 0, 0, 0, 0.36, 0.22, 0.22, 0xf2f2f2); bx(b, 0, 0, 0.115, 0.06, 0.16, 0.01, 0xd62828); bx(b, 0, 0, 0.115, 0.16, 0.06, 0.01, 0xd62828); bx(b, 0, 0.13, 0, 0.12, 0.04, 0.04, md); break;
       case 'bandage': bx(b, 0, 0, 0, 0.14, 0.14, 0.14, 0xeae2d2); bx(b, 0, 0, 0.075, 0.1, 0.03, 0.01, 0xd62828); break;
-      case 'smallshield': bx(gl, 0, 0, 0, 0.12, 0.16, 0.12, 0x3fb8ff); bx(b, 0, 0.11, 0, 0.06, 0.06, 0.06, 0xdddddd); break;
-      case 'bigshield': bx(gl, 0, 0, 0, 0.24, 0.3, 0.18, 0x3f8cff); bx(b, 0, 0.19, 0, 0.1, 0.08, 0.1, 0xdddddd); bx(b, 0, 0, 0.095, 0.16, 0.06, 0.01, 0xffffff); break;
+      case 'smallshield': gl.ell(0, 0, 0, 0.065, 0.085, 0.065, 0x3fb8ff, 10, 8); b.tube(0, 0.07, 0, 0, 0.13, 0, 0.025, 0.025, 0xdddddd, 8); break;
+      case 'bigshield': gl.ell(0, 0, 0, 0.12, 0.16, 0.1, 0x3f8cff, 12, 8); bx(b, 0, 0.19, 0, 0.1, 0.08, 0.1, 0xdddddd); bx(b, 0, 0, 0.095, 0.16, 0.06, 0.01, 0xffffff); break;
       default: // Munitionskiste
         bx(b, 0, 0, 0, 0.3, 0.18, 0.2, 0x5a5a3a); bx(gl, 0, 0.095, 0, 0.2, 0.01, 0.1, new THREE.Color(AMMO[key] ? AMMO[key].col : '#fff').getHex());
     }
