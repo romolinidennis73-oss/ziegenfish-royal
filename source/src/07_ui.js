@@ -4,7 +4,7 @@ const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
 function initInput() {
   const layer = $('touch'); const joy = $('joy'), knob = $('knob'); const ptrs = new Map();
-  const startJoy = (p, e) => { p.kind = 'joy'; p.ox = e.clientX; p.oy = e.clientY; joy.style.left = (e.clientX - 60) + 'px'; joy.style.top = (e.clientY - 60) + 'px'; joy.classList.add('on'); };
+  const startJoy = (p, e) => { p.kind = 'joy'; p.ox = e.clientX; p.oy = e.clientY; joy.style.left = (e.clientX - 65) + 'px'; joy.style.top = (e.clientY - 65) + 'px'; joy.classList.add('on'); };
   layer.addEventListener('pointerdown', e => {
     Audio.init(); e.preventDefault(); const p = { x: e.clientX, y: e.clientY }; ptrs.set(e.pointerId, p);
     if (e.pointerType === 'mouse') { p.kind = 'look'; if (e.button === 0 && M.state !== 'menu') { Input.fire = true; Input.firePressed = true; } if (e.button === 2) Input.aim = !Input.aim; tryLock(); return; }
@@ -14,7 +14,7 @@ function initInput() {
   layer.addEventListener('contextmenu', e => e.preventDefault());
   const move = e => {
     const p = ptrs.get(e.pointerId); if (!p) return;
-    if (p.kind === 'joy') { let dx = e.clientX - p.ox, dy = e.clientY - p.oy; const L = Math.hypot(dx, dy), R = 55; if (L > R) { dx *= R / L; dy *= R / L; } knob.style.transform = `translate(${dx}px,${dy}px)`; const s = Settings.joySens; Input.jx = clamp(dx / R * s, -1, 1); Input.jy = clamp(dy / R * s, -1, 1); }
+    if (p.kind === 'joy') { let dx = e.clientX - p.ox, dy = e.clientY - p.oy; const L = Math.hypot(dx, dy), R = 58; if (L > R) { dx *= R / L; dy *= R / L; } knob.style.transform = `translate(${dx}px,${dy}px)`; const s = Settings.joySens; Input.jx = clamp(dx / R * s, -1, 1); Input.jy = clamp(dy / R * s, -1, 1); }
     else if (p.kind === 'look') { Input.look[0] += e.clientX - p.x; Input.look[1] += e.clientY - p.y; }
     p.x = e.clientX; p.y = e.clientY;
   };
@@ -83,7 +83,7 @@ const UI = {
   updateHUD(dt) {
     const p = M.player; if (!p) return;
     $('alive').textContent = M.aliveCount; $('kills').textContent = p.kills; const tt = Math.floor(M.time); $('mtime').textContent = Math.floor(tt / 60) + ':' + String(tt % 60).padStart(2, '0');
-    $('hpbar').style.width = clamp(p.hp, 0, 100) + '%'; $('hpnum').textContent = Math.ceil(Math.max(0, p.hp)); $('shbar').style.width = clamp(p.shield, 0, 100) + '%'; $('shnum').textContent = Math.ceil(p.shield);
+    $('hpbar').style.width = clamp(p.hp, 0, 100) + '%'; $('vitals').classList.toggle('low', p.hp < 30); $('hpnum').textContent = Math.ceil(Math.max(0, p.hp)); $('shbar').style.width = clamp(p.shield, 0, 100) + '%'; $('shnum').textContent = Math.ceil(p.shield);
     // Sturm-Info
     const st = S.mode === 'wait' ? 'Sturm zieht zu in ' : S.mode === 'shrink' ? 'Sturm schrumpft: ' : 'Letzte Zone'; const sec = Math.max(0, Math.ceil(S.t));
     $('storminfo').textContent = S.mode === 'final' ? st : st + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
@@ -164,7 +164,7 @@ function show(id) { for (const s of ['menu', 'panel', 'mm', 'loading', 'hud', 'e
 function refreshMenu() {
   const P = Profile; $('pname').textContent = P.name; $('plevel').textContent = P.level; $('pxp').style.width = (P.xp / xpForLevel(P.level) * 100) + '%'; $('pxpt').textContent = P.xp + ' / ' + xpForLevel(P.level) + ' XP';
   $('pwins').textContent = P.wins; $('pkills').textContent = P.kills; $('pskin').textContent = SKINS[P.skin].name;
-  $('mdiff').textContent = 'Bots: ' + Settings.difficulty[0].toUpperCase() + Settings.difficulty.slice(1) + ' · ' + (Settings.duration === 'lang' ? '~15 Min.' : '~9 Min.');
+  $('mdiff').textContent = 'Bots: ' + ({ leicht: 'Einfach', mittel: 'Normal', schwer: 'Schwer' })[Settings.difficulty] + ' · Zielhilfe: ' + ({ stark: 'Stark', sehr: 'Sehr stark', max: 'Maximal' })[Settings.aimAssist] + ' · ' + (Settings.duration === 'lang' ? '~15 Min.' : '~9 Min.');
 }
 function openPanel(kind) {
   Audio.init(); Audio.ui(); show('panel'); const body = $('pbody'), title = $('ptitle'); body.innerHTML = ''; ZR.panel = kind; ZR.menuWeapon = null;
@@ -207,9 +207,9 @@ function buildSettings(body) {
   const toggle = (key, label) => { const d = row(label, `<button class="tg ${Settings[key] ? 'on' : ''}">${Settings[key] ? 'AN' : 'AUS'}</button>`); const b = d.querySelector('button'); b.onclick = () => { Settings[key] = !Settings[key]; saveSettings(); b.className = 'tg ' + (Settings[key] ? 'on' : ''); b.textContent = Settings[key] ? 'AN' : 'AUS'; Audio.ui(); $('fps').style.display = Settings.showFps ? 'block' : 'none'; }; };
   const choice = (key, label, opts, after) => { const d = row(label, opts.map(o => `<button class="ch ${Settings[key] === o[0] ? 'on' : ''}" data-v="${o[0]}">${o[1]}</button>`).join('')); d.querySelectorAll('button').forEach(b => b.onclick = () => { Settings[key] = b.dataset.v; saveSettings(); d.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); Audio.ui(); if (after) after(); refreshMenu(); }); };
   slider('music', 'Musiklautstärke', 0, 1, 0.05); slider('sfx', 'Soundeffekte', 0, 1, 0.05); slider('camSens', 'Kameraempfindlichkeit', 0.3, 2.5, 0.1); slider('joySens', 'Steuerungsempfindlichkeit (Joystick)', 0.6, 1.6, 0.1);
-  choice('quality', 'Grafikqualität', [['niedrig', 'Niedrig'], ['mittel', 'Mittel'], ['hoch', 'Hoch']], applyQuality);
-  choice('aimAssist', 'Zielhilfe', [['aus', 'Aus'], ['normal', 'Normal'], ['stark', 'Stark']]);
-  choice('difficulty', 'Bot-Schwierigkeit', [['leicht', 'Leicht'], ['mittel', 'Mittel'], ['schwer', 'Schwer']]);
+  choice('quality', 'Grafikmodus', [['niedrig', 'Performance'], ['mittel', 'Ausgewogen'], ['hoch', 'Qualität']], () => { applyQuality(); UI.toast('Gras & Bäume ändern sich ab dem nächsten Start'); });
+  choice('aimAssist', 'Zielhilfe (Aim Assist)', [['stark', 'Stark'], ['sehr', 'Sehr stark'], ['max', 'Maximal']]); slider('aimRadius', 'Zielhilfe-Radius', 0.5, 1.6, 0.1);
+  choice('difficulty', 'Bot-Schwierigkeit', [['leicht', 'Einfach'], ['mittel', 'Normal'], ['schwer', 'Schwer']]);
   choice('duration', 'Matchdauer', [['kurz', '8–10 Min.'], ['lang', '~15 Min.']]);
   toggle('autoFire', 'Automatisches Schießen'); toggle('showFps', 'FPS-Anzeige'); toggle('controlHelp', 'Steuerungshilfe (Beschriftungen & Tipps)'); toggle('leftFire', 'Zweiter Feuerknopf links');
   const n = row('Spielername', `<input type="text" maxlength="16" value="${esc(Profile.name)}">`); n.querySelector('input').onchange = e => { Profile.name = e.target.value.trim().slice(0, 16) || 'Ziegenfish_2'; saveProfile(); refreshMenu(); };

@@ -145,10 +145,10 @@ function updatePlayer(dt) {
   }
   Input.firePressed = false;
   // Zielhilfe: Kamera zieht zum Gegner nahe dem Fadenkreuz
-  if (w && Settings.aimAssist !== 'aus' && (Input.fire || p.ads)) {
-    const strong = Settings.aimAssist === 'stark'; let best = null, ba = (strong ? 14 : 6) * DEG; const cf = camForward(); const cp = ZR.camera.position;
+  if (w && (Input.fire || p.ads || Settings.aimAssist === 'max')) {
+    const A = AIM[Settings.aimAssist]; let best = null, ba = A.cone * 0.85 * Settings.aimRadius * DEG; const cf = camForward(); const cp = ZR.camera.position;
     for (const c of M.chars) { if (c === p || !c.alive || c.mode !== 'ground') continue; const dx = c.x - cp.x, dy = c.y + 1.2 - cp.y, dz = c.z - cp.z, L = Math.hypot(dx, dy, dz); if (L > WEAPONS[w.key].range * 1.3) continue; const a = Math.acos(clamp((dx * cf.x + dy * cf.y + dz * cf.z) / L, -1, 1)); if (a < ba) { ba = a; best = c; } }
-    if (best) { const k = Math.min(1, dt * (strong ? 7 : 3)); const wy = Math.atan2(best.x - cp.x, best.z - cp.z); const wp = Math.atan2(best.y + 1.2 - cp.y, Math.hypot(best.x - cp.x, best.z - cp.z)); p.camYaw += angDiff(p.camYaw, wy) * k; p.camPitch += (wp - p.camPitch) * k; }
+    if (best) { const k = Math.min(0.35, dt * A.pull * (Input.fire || p.ads ? 1 : 0.4)); const wy = Math.atan2(best.x - cp.x, best.z - cp.z); const wp = Math.atan2(best.y + 1.2 - cp.y, Math.hypot(best.x - cp.x, best.z - cp.z)); p.camYaw += angDiff(p.camYaw, wy) * k; p.camPitch += (wp - p.camPitch) * k; }
   }
 }
 function camForward() { const p = M.player; const cp = Math.cos(p.camPitch); return _f.set(Math.sin(p.camYaw) * cp, Math.sin(p.camPitch), Math.cos(p.camYaw) * cp); }
@@ -196,7 +196,7 @@ function endMatch(win) {
   P.history = [{ place, kills: p.kills, dmg: p.dmgDone, xp, date: new Date().toLocaleDateString('de-CH') }].concat(P.history || []).slice(0, 20);
   const lv = addXP(xp); saveProfile();
   win ? Audio.victory() : Audio.defeat(); Audio.playMusic('menu');
-  const e = $('end'); e.className = win ? 'win' : 'lose';
+  const e = $('end'); e.classList.remove('win', 'lose'); e.classList.add(win ? 'win' : 'lose');
   $('endtitle').innerHTML = win ? 'ZIEGENFISCH-SIEG!<small>Halb Ziege. Halb Fisch. 100 % Sieg.</small>' : 'ELIMINIERT<small>' + (p.lastAtt ? 'von ' + esc(p.lastAtt.name) : 'vom Sturm erwischt') + '</small>';
   const t = Math.floor(surv / 60) + ':' + String(surv % 60).padStart(2, '0');
   $('endstats').innerHTML = [['Platzierung', '#' + place], ['Eliminierungen', p.kills], ['Überlebt', t], ['Schaden', Math.round(p.dmgDone)], ['Erfahrung', '+' + xp + ' XP']].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('') + (lv ? `<div class="lvup">LEVEL UP! Jetzt Level ${P.level}</div>` : '');
@@ -208,14 +208,16 @@ function backToMenu() { if (ZR.lobbyMesh) ZR.lobbyMesh.visible = false; clearMat
 let last = performance.now(), fpsAcc = 0, fpsN = 0, hudT = 0, mmT = 0, itemT = 0, simAcc = 0;
 function loop(now) {
   requestAnimationFrame(loop); let dt = Math.min(0.05, (now - last) / 1000); last = now;
-  fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { $('fps').textContent = Math.round(fpsN / fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
+  fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { const f = fpsN / fpsAcc; $('fps').textContent = Math.round(f) + ' FPS' + (ZR.dynRes < 1 ? ' · ' + Math.round(ZR.dynRes * 100) + '%' : ''); fpsAcc = 0; fpsN = 0;
+    // Automatische Auflösung: hält die Bildrate stabil
+    if (M.state === 'play' && !M.paused) { ZR.dynRes = ZR.dynRes || 1; if (f < 28 && ZR.dynRes > 0.6) { ZR.dynRes = Math.max(0.6, ZR.dynRes - 0.1); onResize(); } else if (f > 52 && ZR.dynRes < 1) { ZR.dynRes = Math.min(1, ZR.dynRes + 0.05); onResize(); } } }
   updateEnv(dt, M.player && !ZR.menuVisible ? M.player.x : MENU_SPOT.x, M.player && !ZR.menuVisible ? M.player.z : MENU_SPOT.z);
   if (ZR.menuVisible || M.state === 'menu') { menuCamera(dt); FX.update(dt); ZR.renderer.render(ZR.scene, ZR.camera); return; }
   if (M.state === 'lobby' || M.state === 'play' || M.state === 'end') { if (!M.paused) step(dt); }
   ZR.renderer.render(ZR.scene, ZR.camera);
 }
 function step(dt) {
-  const p = M.player; M.time += dt;
+  const p = M.player; M.time += dt; M.frame = (M.frame || 0) + 1;
   if (M.state === 'lobby') { M.lobbyT -= dt; if (M.lobbyT <= 0) beginBus(); }
   if (M.state === 'play' && BUS.active) {
     BUS.t += dt / BUS.dur; const [x, z] = busPos(Math.min(BUS.t, 1)); BUS.m.position.set(x, BUS.y + Math.sin(M.time) * 0.8, z); BUS.m.props.forEach(q => q.rotation.z += dt * 20);
@@ -229,18 +231,18 @@ function step(dt) {
   for (const c of M.chars) {
     if (c.isPlayer) continue;
     if (!c.alive) { if (c.deathT > 0) { c.deathT += dt; if (c.deathT > 0.5) { c.model.root.visible = false; c.deathT = -1; } else c.model.root.scale.setScalar(1 - c.deathT * 1.6); } continue; }
-    const d2p = dist2(c.x, c.z, p.x, p.z); const near = d2p < 150 * 150;
+    const d2p = dist2(c.x, c.z, p.x, p.z); const near = d2p < 120 * 120;
     if (M.state === 'lobby') { lobbyBot(c, dt); }
     else if (c.mode === 'bus') continue;
     else if (c.mode === 'sky' || c.mode === 'glide') { const dx = c.lx - c.x, dz = c.lz - c.z, d = Math.hypot(dx, dz); airUpdate(c, dt, d > 3 ? dx / d : 0, d > 3 ? dz / d : 0); }
     else if (near) botUpdate(c, dt, true);
     else if (farTick) { c.farAcc = 0.25; botUpdate(c, 0.25, false); }
-    c.model.root.visible = d2p < 220 * 220 && c.mode !== 'bus';
+    c.model.root.visible = d2p < 200 * 200 && c.mode !== 'bus';
   }
   // Modelle & Animation
   for (const c of M.chars) {
     if (!c.model.root.visible) continue; const m = c.model; m.root.position.set(c.x, c.y, c.z); m.root.rotation.y = c.yaw;
-    if (c.isPlayer || dist2(c.x, c.z, p.x, p.z) < 90 * 90 || M.time % 0.2 < dt) animateChar(m, c, dt);
+    const ad = dist2(c.x, c.z, p.x, p.z); if (c.isPlayer || ad < 60 * 60 || (ad < 120 * 120 ? (M.frame + c.id) % 2 === 0 : (M.frame + c.id) % 6 === 0)) animateChar(m, c, ad < 3600 ? dt : dt * (ad < 14400 ? 2 : 6));
   }
   updateGrenades(dt); FX.update(dt);
   updateDoors(dt, M.chars.filter(c => c.mode === 'ground' && dist2(c.x, c.z, p.x, p.z) < 160 * 160));

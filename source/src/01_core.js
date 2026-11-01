@@ -29,10 +29,13 @@ const Store = {
 };
 
 const DEFAULT_SETTINGS = {
-  music: 0.5, sfx: 0.8, camSens: 1.0, joySens: 1.0, quality: 'hoch', autoFire: false,
-  showFps: false, controlHelp: true, aimAssist: 'stark', difficulty: 'mittel', duration: 'kurz', leftFire: true
+  music: 0.5, sfx: 0.8, camSens: 1.0, joySens: 1.0, quality: 'mittel', autoFire: false, aimRadius: 1.0,
+  showFps: false, controlHelp: true, aimAssist: 'sehr', difficulty: 'leicht', duration: 'kurz', leftFire: true
 };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
+if (!Settings.v2) { Settings.v2 = true; Settings.aimAssist = 'sehr'; Settings.difficulty = 'leicht'; Settings.quality = 'mittel'; }
+if (!['stark', 'sehr', 'max'].includes(Settings.aimAssist)) Settings.aimAssist = 'sehr';
+const AIM = { stark: { cone: 9, spread: 0.4, pull: 3.5, head: 0.12 }, sehr: { cone: 16, spread: 0.1, pull: 6, head: 0.18 }, max: { cone: 28, spread: 0, pull: 10, head: 0.25 } };
 function saveSettings() { Store.set('settings', Settings); }
 
 const DEFAULT_PROFILE = {

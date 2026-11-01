@@ -9,7 +9,7 @@ function newChar(name, skin, isPlayer) {
   const c = {
     name, skin, isPlayer, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, hp: 100, shield: 0, alive: true, onGround: false, crouch: false, sprint: false,
     slots: [null, null, null, null, null], sel: 0, ammo: { leicht: 0, mittel: 0, schwer: 0, schrot: 0 }, reloadT: 0, fireCD: 0, burstLeft: 0, bloom: 0, recoilT: 0,
-    healT: 0, healKey: null, kills: 0, dmgDone: 0, hitT: 0, mode: 'lobby', animSpeed: 0, model: null, inWater: false, stepT: 0, glider: null, deathT: 0, placement: 0
+    id: (M._id = (M._id || 0) + 1), healT: 0, healKey: null, kills: 0, dmgDone: 0, hitT: 0, mode: 'lobby', animSpeed: 0, model: null, inWater: false, stepT: 0, glider: null, deathT: 0, placement: 0
   };
   c.model = makeCharacter(skin, isPlayer); ZR.scene.add(c.model.root); return c;
 }
@@ -163,7 +163,7 @@ function fire(c, ox, oy, oz, dx, dy, dz, extraErr = 0) {
   const mv = Math.hypot(c.vx, c.vz); spread *= (1 + mv / 9 * 0.6) * (c.onGround ? 1 : 1.8) * (c.crouch ? 0.7 : 1); spread += extraErr;
   // Zielhilfe für den Spieler: Schuss wird zum Gegner in Blickrichtung gelenkt
   let assisted = null;
-  if (c.isPlayer && Settings.aimAssist !== 'aus') { assisted = assistTarget(c, ox, oy, oz, dx, dy, dz, w.range * 1.3, Settings.aimAssist === 'stark' ? 16 : 7); if (assisted) { dx = assisted.dx; dy = assisted.dy; dz = assisted.dz; spread *= Settings.aimAssist === 'stark' ? (w.pellets ? 0.45 : 0.08) : 0.5; } }
+  if (c.isPlayer) { const A = AIM[Settings.aimAssist]; assisted = assistTarget(c, ox, oy, oz, dx, dy, dz, w.range * 1.4, A.cone * Settings.aimRadius, A.head); if (assisted) { dx = assisted.dx; dy = assisted.dy; dz = assisted.dz; spread *= w.pellets ? Math.max(0.35, A.spread) : A.spread; } }
   const pel = w.pellets || 1; const sr = spread * DEG;
   // Orthonormalbasis
   const ux = -dz, uz = dx, ul = Math.hypot(ux, uz) || 1; const rx = ux / ul, rz = uz / ul; const vx2 = -dy * rz, vy2 = dz * rx - dx * rz, vz2 = dy * rx; // up ≈ dir × right
@@ -187,13 +187,13 @@ function fire(c, ox, oy, oz, dx, dy, dz, extraErr = 0) {
 }
 // ---------------- Granaten ----------------
 let grenadeGeo = null;
-function assistTarget(c, ox, oy, oz, dx, dy, dz, range, coneDeg) {
+function assistTarget(c, ox, oy, oz, dx, dy, dz, range, coneDeg, headP = 0.18) {
   let best = null, bs = Math.cos(coneDeg * DEG);
   for (const t of M.chars) {
-    if (t === c || !t.alive || t.mode !== 'ground') continue; const head = Math.random() < 0.18;
+    if (t === c || !t.alive || t.mode !== 'ground') continue; const head = Math.random() < headP;
     const tx = t.x - ox, ty = t.y + (head ? 1.62 : 1.05) - (t.crouch ? 0.4 : 0) - oy, tz = t.z - oz, L = Math.hypot(tx, ty, tz); if (L > range || L < 0.3) continue;
     // nahe Gegner bekommen einen größeren Kegel
-    const cosA = (tx * dx + ty * dy + tz * dz) / L; const bonus = L < 12 ? 0.04 : 0; if (cosA + bonus < bs) continue;
+    const cosA = (tx * dx + ty * dy + tz * dz) / L; const bonus = L < 15 ? 0.06 : L < 30 ? 0.02 : 0; if (cosA + bonus < bs) continue;
     if (!lineOfSight(ox, oy, oz, t.x, t.y + 1.1, t.z)) continue; bs = cosA + bonus; best = { t, dx: tx / L, dy: ty / L, dz: tz / L };
   }
   return best;

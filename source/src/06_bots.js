@@ -51,6 +51,9 @@ function botThink(c) {
   if (c.threat && c.threat.alive && M.time - c.threatT < 4) { const d = Math.hypot(c.threat.x - c.x, c.threat.z - c.z); if (d < 120) t = c.threat; }
   const seen = botSee(c);
   if (seen) { if (!t || seen === t || Math.hypot(seen.x - c.x, seen.z - c.z) < Math.hypot(t.x - c.x, t.z - c.z) * 0.6) { if (seen !== c.target) c.reactT = (seen.isPlayer ? dif.react + dif.preact : dif.react) * rand(0.8, 1.3); t = seen; } c.seenT = M.time; }
+  if (t && t.isPlayer && c.threat !== t && Math.hypot(t.x - c.x, t.z - c.z) > 55) t = null;
+  if (t && t.isPlayer && M.time - c.seenT > 3.5) t = null;
+  if (!t && Math.random() < 0.03 && c.state !== 'storm') { c.state = 'roam'; c.gx = c.x + rand(-40, 40); c.gz = c.z + rand(-40, 40); c.think = rand(2, 4); c.target = null; return; } // kurz Orientierung verlieren
   if (t) { if (lineOfSight(c.x, c.y + 1.6, c.z, t.x, t.y + 1.3, t.z)) { c.seenT = M.time; c.lkx = t.x; c.lkz = t.z; c.tVis = true; } else c.tVis = false; if (M.time - c.seenT > 6) t = null; }
   c.target = t;
   const dist = t ? Math.hypot(t.x - c.x, t.z - c.z) : 60;
