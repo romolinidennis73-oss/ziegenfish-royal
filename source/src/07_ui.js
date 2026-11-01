@@ -132,7 +132,7 @@ const UI = {
     }
     g.putImageData(img, 0, 0); const sc = 512 / 1100, tx = x => (x + 550) * sc;
     g.strokeStyle = '#e8e2c8'; g.lineWidth = 2.5; g.lineCap = 'round'; for (const s of W.roadSegs) { g.beginPath(); g.moveTo(tx(s.ax), tx(s.az)); g.lineTo(tx(s.bx), tx(s.bz)); g.stroke(); }
-    g.fillStyle = 'rgba(40,44,52,0.85)'; for (const b of W.boxes) { if (b.kind === 'tree' || b.kind === 'rock' || b.kind === 'lobby' || b.kind === 'fence' || b.kind === 'door') continue; if ((b.x1 - b.x0) * (b.z1 - b.z0) < 3) continue; g.fillRect(tx(b.x0), tx(b.z0), Math.max(1, (b.x1 - b.x0) * sc), Math.max(1, (b.z1 - b.z0) * sc)); }
+    g.fillStyle = 'rgba(40,44,52,0.85)'; for (const b of W.boxes) { if (b.kind === 'tree' || b.kind === 'rock' || b.kind === 'lobby' || b.kind === 'fence' || b.kind === 'door' || b.kind === 'furn') continue; if ((b.x1 - b.x0) * (b.z1 - b.z0) < 3) continue; g.fillRect(tx(b.x0), tx(b.z0), Math.max(1, (b.x1 - b.x0) * sc), Math.max(1, (b.z1 - b.z0) * sc)); }
     this.mapBase = c;
   },
   drawMap(ctx, size, cx, cz, span, big) {

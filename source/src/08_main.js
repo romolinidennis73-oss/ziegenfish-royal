@@ -38,9 +38,9 @@ function loadMatch() {
   show('loading'); $('ltip').textContent = pick(TIPS); const steps = [
     () => clearMatch(),
     () => { // Loot verteilen
-      for (const s of W.lootSpots) if (Math.random() < 0.8) spawnRandomLoot(s.x, s.y + 0.3, s.z);
+      for (const s of W.lootSpots) if (Math.random() < (s.q >= 40 ? 1 : 0.75)) spawnRandomLoot(s.x, s.y + 0.3, s.z, s.q || 0);
       for (let i = 0; i < 140; i++) { const x = rand(-470, 470), z = rand(-470, 470); if (heightAt(x, z) > 3 && Math.random() < 0.8) spawnRandomLoot(x, heightAt(x, z) + 0.5, z); }
-      for (const p of W.chests) { const m = makeChestMesh(); m.position.set(p.x, p.y, p.z); m.rotation.y = Math.random() * 6; ZR.scene.add(m); M.chestObjs.push({ x: p.x, y: p.y, z: p.z, m, open: false }); }
+      for (const p of W.chests) { const m = makeChestMesh(); m.position.set(p.x, p.y, p.z); m.rotation.y = p.rot != null ? p.rot : Math.random() * 6; ZR.scene.add(m); M.chestObjs.push({ x: p.x, y: p.y, z: p.z, m, open: false, t: 0 }); }
     },
     () => { // Spieler
       const p = newChar(Profile.name, SKINS[Profile.skin], true); M.player = p; M.chars.push(p);
@@ -244,12 +244,12 @@ function step(dt) {
     if (!c.model.root.visible) continue; const m = c.model; m.root.position.set(c.x, c.y, c.z); m.root.rotation.y = c.yaw;
     const ad = dist2(c.x, c.z, p.x, p.z); if (c.isPlayer || ad < 60 * 60 || (ad < 120 * 120 ? (M.frame + c.id) % 2 === 0 : (M.frame + c.id) % 6 === 0)) animateChar(m, c, ad < 3600 ? dt : dt * (ad < 14400 ? 2 : 6));
   }
-  updateGrenades(dt); FX.update(dt);
+  updateGrenades(dt); updateChests(dt); FX.update(dt);
   updateDoors(dt, M.chars.filter(c => c.mode === 'ground' && dist2(c.x, c.z, p.x, p.z) < 160 * 160));
   // Alte Schüsse entfernen
   if (M.shots.length > 200) M.shots.splice(0, M.shots.length - 150);
   itemT -= dt; if (itemT <= 0) { itemT = 0.4; updateItemMeshes(p.x, p.z); }
-  for (const it of M.items) if (it.m) { it.m.rotation.y += dt * 1.2; it.m.position.y = it.y + 0.45 + Math.sin(M.time * 2 + it.bob) * 0.08; }
+  for (const it of M.items) if (it.m) { it.m.rotation.y += dt * 1.2; if (it.pop) { const k = Math.min(1, (M.time - it.pop.t0) / 0.55); it.m.position.set(it.pop.sx + (it.x - it.pop.sx) * k, it.pop.sy + (it.y + 0.45 - it.pop.sy) * k + Math.sin(k * Math.PI) * 1.3, it.pop.sz + (it.z - it.pop.sz) * k); if (k >= 1) it.pop = null; } else it.m.position.y = it.y + 0.45 + Math.sin(M.time * 2 + it.bob) * 0.08; }
   if (M.state !== 'end') updateCamera(dt);
   hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.updateHUD(0.08); } mmT -= dt; if (mmT <= 0) { mmT = 0.2; UI.minimap(); }
 }

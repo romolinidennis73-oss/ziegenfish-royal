@@ -89,7 +89,7 @@ function shootRay(sh, ox, oy, oz, dx, dy, dz, range, dmg, headMult, wkey) {
 function damage(t, amt, att, wkey, head) {
   if (!t.alive || M.state === 'lobby' || M.ended && !t.isPlayer) return;
   if (t.isPlayer && att && !att.isPlayer) amt *= DIFF[Settings.difficulty].pdmg;
-  else if (att && !att.isPlayer && !t.isPlayer) amt *= 0.4; // Bots untereinander etwas langsamer, damit das Match länger spannend bleibt
+  else if (att && !att.isPlayer && !t.isPlayer) amt *= 0.3; // Bots untereinander etwas langsamer, damit das Match länger spannend bleibt
   if (t.isPlayer && M.godMode) amt = 0;
   amt = Math.max(1, Math.round(amt)); let left = amt; let shieldHit = false;
   if (t.shield > 0) { const s = Math.min(t.shield, left); t.shield -= s; left -= s; shieldHit = true; }
@@ -236,18 +236,43 @@ function spawnRandomLoot(x, y, z, quality = 0) {
   else if (r < 0.78) { const k = pick(ITEM_POOL); spawnItem(k, 0, k === 'bandage' ? 5 : k === 'granate' ? 3 : 1, x, y, z); }
   else { const a = pick(['leicht', 'mittel', 'schwer', 'schrot', 'mittel', 'leicht']); spawnItem(a, 0, AMMO[a].box, x, y, z); }
 }
-let chestGeo = null;
+let chestGeo = null, lidGeo = null; const chestGlowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
 function makeChestMesh() {
-  if (!chestGeo) chestGeo = partGeo((b, gl) => { bx(b, 0, 0.25, 0, 0.9, 0.5, 0.55, 0x8a5a2b); bx(b, 0, 0.58, 0, 0.94, 0.16, 0.59, 0xc79a3a); bx(gl, 0, 0.42, 0.285, 0.14, 0.18, 0.02, 0xffd447); bx(b, -0.45, 0.3, 0, 0.04, 0.55, 0.6, 0xc79a3a); bx(b, 0.45, 0.3, 0, 0.04, 0.55, 0.6, 0xc79a3a); });
-  const g = new THREE.Group(); const m = new THREE.Mesh(chestGeo.main, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.3, emissive: 0x332200 })); m.castShadow = true; g.add(m); g.add(new THREE.Mesh(chestGeo.glow, new THREE.MeshBasicMaterial({ vertexColors: true }))); return g;
+  if (!chestGeo) {
+    chestGeo = partGeo((b, gl) => { bx(b, 0, 0.25, 0, 0.9, 0.5, 0.55, 0x4a2810); bx(b, 0, 0.47, -0.27, 0.94, 0.06, 0.05, 0xc8901a); bx(b, 0, 0.47, 0.27, 0.94, 0.06, 0.05, 0xc8901a); bx(b, -0.44, 0.47, 0, 0.06, 0.06, 0.59, 0xc8901a); bx(b, 0.44, 0.47, 0, 0.06, 0.06, 0.59, 0xc8901a); bx(gl, 0, 0.4, 0.285, 0.14, 0.16, 0.02, 0xffd447); bx(b, -0.45, 0.25, 0, 0.04, 0.5, 0.6, 0xc8901a); bx(b, 0.45, 0.25, 0, 0.04, 0.5, 0.6, 0xc8901a); bx(b, 0, 0.03, 0, 0.94, 0.06, 0.59, 0x6a4520); bx(gl, 0, 0.504, 0, 0.8, 0.006, 0.46, 0xffd23a); bx(gl, -0.15, 0.506, 0.05, 0.22, 0.006, 0.16, 0xfff3b0); bx(gl, 0.2, 0.506, -0.08, 0.16, 0.006, 0.14, 0xfff3b0); });
+    // Deckel: Drehpunkt an der hinteren Oberkante
+    lidGeo = partGeo((b, gl) => { bx(b, 0, 0.09, 0.28, 0.92, 0.16, 0.58, 0x4a2810); bx(b, 0, 0.18, 0.28, 0.96, 0.05, 0.6, 0xc8901a); bx(b, -0.3, 0.1, 0.28, 0.06, 0.18, 0.61, 0xc8901a); bx(b, 0.3, 0.1, 0.28, 0.06, 0.18, 0.61, 0xc8901a); bx(gl, 0, 0.06, 0.585, 0.12, 0.08, 0.02, 0xffd447); });
+  }
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.25, emissive: 0x140a00 });
+  const g = new THREE.Group(); const m = new THREE.Mesh(chestGeo.main, mat); m.castShadow = true; g.add(m); g.add(new THREE.Mesh(chestGeo.glow, chestGlowMat));
+  const lid = new THREE.Group(); lid.position.set(0, 0.5, -0.28); const lm = new THREE.Mesh(lidGeo.main, mat); lm.castShadow = true; lid.add(lm); lid.add(new THREE.Mesh(lidGeo.glow, chestGlowMat)); g.add(lid); g.userData.lid = lid;
+  return g;
 }
 function openChest(ch, by) {
-  if (ch.open) return; ch.open = true; ch.m.visible = false; FX.burst(ch.x, ch.y + 0.6, ch.z, 25, 1.4, 1.1, 0.3, 3, 0.7, 0.3);
-  if (by && by.isPlayer) Audio.chest();
-  spawnRandomLoot(ch.x + 0.8, ch.y + 0.5, ch.z + 0.6, 25); const k = pick(ITEM_POOL); spawnItem(k, 0, k === 'bandage' ? 5 : k === 'granate' ? 2 : 1, ch.x - 0.8, ch.y + 0.5, ch.z + 0.6);
-  const a = pick(['leicht', 'mittel', 'schwer', 'schrot']); spawnItem(a, 0, AMMO[a].box, ch.x, ch.y + 0.5, ch.z + 1.2);
-  // garantiert eine Waffe
-  if (Math.random() < 0.6) { const wk = pick(WEAPON_POOL); spawnItem(wk, rollRarity(30), WEAPONS[wk].mag, ch.x + 1.2, ch.y + 0.5, ch.z - 0.4); spawnItem(WEAPONS[wk].ammo, 0, AMMO[WEAPONS[wk].ammo].box, ch.x - 1.2, ch.y + 0.5, ch.z - 0.4); }
+  if (ch.open) return; ch.open = true; ch.t = 0; ch.by = by; ch.looted = false;
+  FX.burst(ch.x, ch.y + 0.7, ch.z, 30, 1.0, 0.85, 0.3, 2.6, 0.8, 0.25);
+  if (by && by.isPlayer) { Audio.chest(); UI.toast && UI.toast('Truhe geöffnet!', '#ffd447'); }
+}
+function chestLoot(ch) {
+  const S = (key, rar, n, dx, dz) => { const it = spawnItem(key, rar, n, ch.x + dx, ch.y + 0.5, ch.z + dz); it.pop = { t0: M.time, sx: ch.x, sy: ch.y + 0.6, sz: ch.z }; };
+  const r = Math.random(); if (r < 0.55) { const wk = pick(WEAPON_POOL); S(wk, rollRarity(30), WEAPONS[wk].mag, 1.2, 0.6); S(WEAPONS[wk].ammo, 0, AMMO[WEAPONS[wk].ammo].box, -1.2, 0.6); }
+  else { const k = pick(ITEM_POOL); S(k, 0, k === 'bandage' ? 5 : k === 'granate' ? 2 : 1, 1.2, 0.6); }
+  const k = pick(ITEM_POOL); S(k, 0, k === 'bandage' ? 5 : k === 'granate' ? 2 : 1, -0.9, 1.3);
+  const a = pick(['leicht', 'mittel', 'schwer', 'schrot']); S(a, 0, AMMO[a].box, 0.3, 1.5);
+  if (Math.random() < 0.6) { const wk = pick(WEAPON_POOL); S(wk, rollRarity(35), WEAPONS[wk].mag, 1.4, -0.6); S(WEAPONS[wk].ammo, 0, AMMO[WEAPONS[wk].ammo].box, -1.4, -0.6); }
+  if (M.player) updateItemMeshes(M.player.x, M.player.z);
+}
+// Deckel-Animation, Glitzern, Loot-Auswurf
+function updateChests(dt) {
+  chestGlowMat.color.setScalar(0.75 + Math.sin(M.time * 4) * 0.25);
+  const p = M.player;
+  for (const ch of M.chestObjs) {
+    if (!ch.open) { if (p && dist2(ch.x, ch.z, p.x, p.z) < 400 && Math.random() < dt * 2.5) FX.burst(ch.x + rand(-0.4, 0.4), ch.y + 0.75, ch.z + rand(-0.3, 0.3), 1, 1.0, 0.85, 0.35, 0.6, 0.5, 0.12); continue; }
+    if (ch.t > 3) continue; ch.t += dt;
+    const k = clamp(ch.t / 0.45, 0, 1), e = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2); // easeOutBack
+    ch.m.userData.lid.rotation.x = -e * 1.85;
+    if (!ch.looted && ch.t > 0.22) { ch.looted = true; chestLoot(ch); FX.burst(ch.x, ch.y + 0.8, ch.z, 26, 1.0, 0.9, 0.4, 4, 0.9, 0.2); }
+  }
 }
 const beamGeo = new THREE.CylinderGeometry(0.05, 0.12, 2.2, 6, 1, true); const ringGeo = new THREE.RingGeometry(0.45, 0.6, 24); const beamMats = RARITY.map(r => new THREE.MeshBasicMaterial({ color: r.hex, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
 function updateItemMeshes(px, pz) {

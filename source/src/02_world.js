@@ -62,6 +62,7 @@ function makeTextures() {
   T.wood = canvasTex(128, (g, s) => { g.fillStyle = '#a77b4c'; g.fillRect(0, 0, s, s); for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(60,30,10,${Math.random() * 0.25})`; g.fillRect(0, Math.random() * s, s, 1 + Math.random() * 2); } g.fillStyle = 'rgba(0,0,0,0.3)'; for (let y = 0; y < s; y += 32) g.fillRect(0, y, s, 2); });
   T.metal = canvasTex(128, (g, s) => { g.fillStyle = '#c9c9c9'; g.fillRect(0, 0, s, s); for (let x = 0; x < s; x += 16) { g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(x, 0, 3, s); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(x + 3, 0, 2, s); } });
   T.road = canvasTex(256, (g, s) => { noiseFill(g, s, '#4a4a4f', 0.15, 8000); g.fillStyle = '#e8e2c8'; for (let y = 0; y < s; y += 64) g.fillRect(s / 2 - 3, y, 6, 34); g.fillStyle = '#ddd'; g.fillRect(6, 0, 4, s); g.fillRect(s - 10, 0, 4, s); });
+  T.tile = canvasTex(256, (g, s) => { noiseFill(g, s, '#f0eeea', 0.05, 1500); g.fillStyle = 'rgba(90,90,90,0.45)'; for (let i = 0; i < s; i += 32) { g.fillRect(i, 0, 2, s); g.fillRect(0, i, s, 2); } });
   T.bark = canvasTex(64, (g, s) => { noiseFill(g, s, '#6b4a32', 0.3, 800); });
   T.leaf = canvasTex(128, (g, s) => { noiseFill(g, s, '#c8c8c8', 0.35, 4000); });
   return T;
@@ -334,42 +335,46 @@ function wall(x0, z0, x1, z1, y, h, col, opts = {}) {
     }
   }
 }
-// Begehbares Haus mit Innenraum, Tür, Fenstern, ggf. 2 Etagen mit Treppe
+// Begehbares Haus mit Räumen, Möbeln, Tür, Fenstern, ggf. 2 Etagen mit Treppe und Balkon
 function house(cx, cz, w, d, floors, doorSide, opts = {}) {
   const y = opts.y != null ? opts.y : heightAt(cx, cz) + 0.05; const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2, FH = 3.2;
   const col = opts.color || pick(WALLC); const dpos = opts.doorPos != null ? opts.doorPos : (doorSide === 'n' || doorSide === 's' ? w / 2 - 1.0 : d / 2 - 1.0);
+  const kind = opts.kind || 'house'; const zStart = floors > 1 ? z0 + 2.5 : z0;
+  const part = w >= 9 && kind !== 'shop' && kind !== 'hut' ? x0 + w * (Math.random() < 0.5 ? 0.36 : 0.64) : null;
+  const balc = floors > 1 && kind === 'house' && Math.random() < 0.65; const icol = pick(FUR.wallIn);
+  const H = { x0, x1, z0, z1, floors, doorSide, dpos, part, zStart, balc };
   // Fundament
   solid(x0 - 0.2, y - 2, z0 - 0.2, x1 + 0.2, y + 0.15, z1 + 0.2, 0x9a9a95);
   for (let f = 0; f < floors; f++) {
     const fy = y + 0.15 + f * FH, wh = FH;
     wall(x0, z0, x1, z0, fy, wh, col, { door: f === 0 && doorSide === 'n' ? dpos : null, windows: true });
-    wall(x0, z1, x1, z1, fy, wh, col, { door: f === 0 && doorSide === 's' ? dpos : null, windows: true });
+    wall(x0, z1, x1, z1, fy, wh, col, { door: f === 0 && doorSide === 's' ? dpos : f === 1 && balc ? w / 2 - 1 : null, windows: true, realDoor: f === 0 });
     wall(x0, z0, x0, z1, fy, wh, col, { door: f === 0 && doorSide === 'w' ? dpos : null, windows: true });
     wall(x1, z0, x1, z1, fy, wh, col, { door: f === 0 && doorSide === 'e' ? dpos : null, windows: true });
+    if (part) wall(part, zStart, part, z1, fy, wh - 0.2, icol, { door: (z1 - zStart) / 2 - 1, realDoor: false });
+    if (f === 1 && balc) balcony(cx, z1 + 0.15, fy, col);
     // Boden/Decke über diesem Stock
     const sy = fy + FH - 0.2;
     if (f < floors - 1) {
       // Loch für Treppe an der Nordwand (z0), Treppe läuft in +x
-      solid(x0, sy, z0 + 1.6, x1, sy + 0.2, z1, 0xb9a88f);
-      solid(x0 + 6.0, sy, z0, x1, sy + 0.2, z0 + 1.6, 0xb9a88f);
-      for (let s = 0; s < 10; s++) solid(x0 + 0.3 + s * 0.55, fy, z0 + 0.2, x0 + 0.85 + s * 0.55, fy + (s + 1) * 0.31, z0 + 1.55, 0x8d6e4f);
+      solid(x0, sy, z0 + 1.6, x1, sy + 0.2, z1, 0xe6e1d8);
+      solid(x0 + 6.0, sy, z0, x1, sy + 0.2, z0 + 1.6, 0xe6e1d8);
+      for (let s = 0; s < 10; s++) solid(x0 + 0.3 + s * 0.55, fy, z0 + 0.2, x0 + 0.85 + s * 0.55, fy + (s + 1) * 0.31, z0 + 1.55, 0x8d6e4f, 'wood');
       // Geländer
-      solid(x0 + 0.3, sy + 0.2, z0 + 1.55, x0 + 5.6, sy + 1.1, z0 + 1.65, 0x6d5b47);
-      W.lootSpots.push({ x: x1 - 2, y: sy + 0.2, z: z1 - 2 });
+      const m = B('metal'); for (let x = x0 + 0.4; x < x0 + 5.6; x += 0.5) m.box(x, sy + 0.2, z0 + 1.57, x + 0.04, sy + 1.1, z0 + 1.63, 0x2f3236);
+      m.box(x0 + 0.3, sy + 1.05, z0 + 1.55, x0 + 5.6, sy + 1.12, z0 + 1.65, 0x6d5b47); addCollider(x0 + 0.3, sy + 0.2, z0 + 1.55, x0 + 5.6, sy + 1.1, z0 + 1.65, 'fence');
     } else {
       solid(x0 - 0.2, sy, z0 - 0.2, x1 + 0.2, sy + 0.25, z1 + 0.2, 0x8f8f8a);
       if (!opts.flat) { B('roof').roof(x0, z0, x1, z1, sy + 0.25, Math.min(w, d) * 0.32, opts.roof || pick(ROOFC), w > d); B('solid').box(x1 - 2.2, sy + 0.25, z1 - 2.4, x1 - 1.4, sy + 0.25 + Math.min(w, d) * 0.32 + 0.9, z1 - 1.6, 0x8a5a48); }
       else { const ac = B('metal'); ac.box(cx - 1, sy + 0.25, cz - 0.7, cx + 0.4, sy + 1.25, cz + 0.7, 0xbfc3c7); }
     }
-    // Möbel & Loot
-    if (f === 0 || Math.random() < 0.6) {
-      const fx = x1 - 1.6, fz = z1 - 1.2; solid(fx - 0.8, fy, fz - 0.6, fx + 0.8, fy + 0.8, fz + 0.6, 0x6b4f37); // Tisch/Kommode
-      if (w > 7) { solid(x0 + 0.5, fy, z1 - 2.3, x0 + 2.4, fy + 0.5, z1 - 0.4, 0x4f5f73); }
-      W.lootSpots.push({ x: cx + rand(-w / 4, w / 4), y: fy + 0.05, z: cz + rand(-d / 4, d / 4) });
-    }
+    // Decke (weiß verputzt)
+    const cw = B('furn'), cc = 0xf2efe8; if (f < floors - 1) { cw.box(x0 + 0.15, sy - 0.015, z0 + 1.6, x1 - 0.15, sy, z1 - 0.15, cc); cw.box(x0 + 6.0, sy - 0.015, z0 + 0.15, x1 - 0.15, sy, z0 + 1.6, cc); } else cw.box(x0 + 0.15, sy - 0.015, z0 + 0.15, x1 - 0.15, sy, z1 - 0.15, cc);
+    // Deckenlampe(n)
+    B('glass').cyl(cx, sy - 0.06, cz + (floors > 1 ? 1.2 : 0), 0.22, 0.06, 0xfff2c8, 10);
+    furnishHouse(H, f, fy, kind, { chestP: opts.chest != null ? opts.chest : 0.45 });
   }
-  if (Math.random() < (opts.chest || 0.45)) W.chests.push({ x: x1 - 1.2, y: y + 0.15, z: z0 + 2.4 });
-  return { x0, x1, z0, z1, y, top: y + 0.15 + floors * FH };
+  const res = { x0, x1, z0, z1, y, top: y + 0.15 + floors * FH, floors, kind, doorSide, part, balc }; W.houses.push(res); return res;
 }
 function skyscraper(cx, cz, w, d, h) {
   const y = heightAt(cx, cz) - 1; const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
@@ -380,7 +385,7 @@ function skyscraper(cx, cz, w, d, h) {
 }
 // Laden mit großer Glasfront (begehbar)
 function shop(cx, cz, w, d, doorSide, col) {
-  const r = house(cx, cz, w, d, 1, doorSide, { color: col || 0xe6e1d8, flat: true, chest: 0.6 });
+  const r = house(cx, cz, w, d, 1, doorSide, { color: col || 0xe6e1d8, flat: true, chest: 0.6, kind: 'shop' });
   return r;
 }
 function crate(x, z, s = 1.2, y) { const yy = y != null ? y : heightAt(x, z); solid(x - s / 2, yy, z - s / 2, x + s / 2, yy + s, z + s / 2, 0xffffff, 'wood'); }
@@ -419,7 +424,7 @@ function tower(x, z) {
   const steps = Math.ceil(H / 0.33); for (let s = 0; s < steps; s++) { const sx = x - 2.4 - (steps - 1 - s) * 0.45; const top = y + (s + 1) * (H + 0.25) / steps; solid(sx - 0.45, top - 0.3, z - 0.7, sx, top, z + 0.7, 0x6d5640); }
   W.lootSpots.push({ x, y: y + H + 0.25, z });
 }
-function hut(x, z) { house(x, z, 6, 5, 1, pick(['n', 's', 'e', 'w']), { color: 0x8b6b4a, roof: 0x4b3a2a, chest: 0.85 }); }
+function hut(x, z) { house(x, z, 6, 5, 1, pick(['n', 's', 'e', 'w']), { color: 0x8b6b4a, roof: 0x4b3a2a, chest: 0.85, kind: 'hut' }); }
 
 // ---------------- Vegetation & Felsen (Instancing) ----------------
 function placeTrees() {
@@ -639,7 +644,7 @@ function buildMilitary() {
   const cx = -330, cz = -70; const y = heightAt(cx, cz);
   fence(cx - 65, cz - 60, cx + 65, cz - 60, 0x666666); fence(cx - 65, cz + 60, cx - 8, cz + 60, 0x666666); fence(cx + 8, cz + 60, cx + 65, cz + 60, 0x666666);
   fence(cx - 65, cz - 60, cx - 65, cz + 60, 0x666666); fence(cx + 65, cz - 60, cx + 65, cz - 10, 0x666666); fence(cx + 65, cz + 10, cx + 65, cz + 60, 0x666666);
-  for (const [dx, dz, s] of [[-30, -30, 'e'], [-30, 0, 'e'], [-30, 30, 'e']]) house(cx + dx, cz + dz, 16, 8, 1, s, { color: 0x6b7350, roof: 0x3b4230, chest: 0.6 });
+  for (const [dx, dz, s] of [[-30, -30, 'e'], [-30, 0, 'e'], [-30, 30, 'e']]) house(cx + dx, cz + dz, 16, 8, 1, s, { color: 0x6b7350, roof: 0x3b4230, chest: 0.6, kind: 'barracks' });
   // Bunker
   const bunker = (bx, bz) => { const by = heightAt(bx, bz); const w = 10, d = 8, h = 3.2; const x0 = bx - w / 2, x1 = bx + w / 2, z0 = bz - d / 2, z1 = bz + d / 2; const c = 0x8a8a7f;
     solid(x0, by, z0, x1, by + h, z0 + 0.6, c); solid(x0, by, z1 - 0.6, bx - 1, by + h, z1, c); solid(bx + 1, by, z1 - 0.6, x1, by + h, z1, c); solid(bx - 1, by + 2.4, z1 - 0.6, bx + 1, by + h, z1, c);
@@ -670,7 +675,7 @@ function scatterProps() {
   }
 }
 function buildWorld(progress) {
-  W.boxes.length = 0; W.grid.clear(); W.doors.length = 0; W.chests.length = 0; W.lootSpots.length = 0; W.pois.length = 0; W.treePos.length = 0;
+  W.houses = []; W.boxes.length = 0; W.grid.clear(); W.doors.length = 0; W.chests.length = 0; W.lootSpots.length = 0; W.pois.length = 0; W.treePos.length = 0;
   ZR.tex = makeTextures();
   ZR.geo = { door: new THREE.BoxGeometry(1.9, 2.5, 0.08) }; ZR.mat = { door: new THREE.MeshStandardMaterial({ color: 0xb5522e, map: ZR.tex.wood, roughness: 0.7 }) };
   const steps = [
@@ -684,7 +689,9 @@ function buildWorld(progress) {
         glass: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.08, metalness: 0.6, emissive: 0x0c1824 }),
         roof: new THREE.MeshStandardMaterial({ vertexColors: true, map: ZR.tex.concrete, roughness: 0.9 }),
         wood: new THREE.MeshStandardMaterial({ vertexColors: true, map: ZR.tex.wood, roughness: 0.85 }),
-        metal: new THREE.MeshStandardMaterial({ vertexColors: true, map: ZR.tex.metal, roughness: 0.55, metalness: 0.35 })
+        metal: new THREE.MeshStandardMaterial({ vertexColors: true, map: ZR.tex.metal, roughness: 0.55, metalness: 0.35 }),
+        furn: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }),
+        tile: new THREE.MeshStandardMaterial({ vertexColors: true, map: ZR.tex.tile, roughness: 0.35, metalness: 0.05 })
       };
       ZR.facadeMat = mats.facade;
       for (const k in W.batches) { const b = W.batches[k]; if (!b.v) continue; for (const m of b.buildTiled(mats[k] || mats.solid)) ZR.scene.add(m); }
