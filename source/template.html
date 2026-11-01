@@ -177,7 +177,7 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .bigbtn.go{background:linear-gradient(180deg,#ffd84d,#e3a514);color:#1b1300;border:0}
 #psettings{display:none;width:min(560px,92vw);max-height:46vh;overflow-y:auto;background:rgba(0,0,0,.3);padding:6px 12px;border-radius:6px;touch-action:pan-y}
 #end{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));text-align:center}
-#end.win{background:radial-gradient(circle at 50% 30%,rgba(242,194,48,.45),rgba(7,26,32,.92) 70%)}
+#end.win{background:radial-gradient(circle at 50% 30%,rgba(242,194,48,.22),rgba(7,26,32,.72) 70%)}
 #end.lose{background:radial-gradient(circle at 50% 30%,rgba(255,77,94,.3),rgba(7,26,32,.94) 70%)}
 #endtitle{font-family:var(--display);font-size:clamp(40px,9vw,92px);line-height:1;margin:0;color:var(--gold);text-shadow:0 5px 0 #7a5a10,0 0 40px rgba(242,194,48,.5)}
 #end.lose #endtitle{color:var(--danger);text-shadow:0 5px 0 #5a1018}
@@ -186,6 +186,19 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 #endstats div{background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:4px;padding:8px 14px;display:grid;min-width:96px}
 #endstats small{color:var(--muted);font-size:12px}#endstats b{font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
 #endstats .lvup{width:100%;background:var(--cyan);color:var(--ink);font-weight:800;border:0}
+#endstats .endmore{width:100%;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;background:none;border:0;padding:0}
+#endstats .endmore div{padding:4px 10px;min-width:84px}#endstats .endmore b{font-size:15px}
+#endstats .rec{width:100%;background:rgba(242,194,48,.18);border-color:var(--gold);color:var(--gold);font-weight:800;padding:5px 10px}
+#endstats .unl{width:100%;background:rgba(180,92,255,.2);border-color:#b45cff;color:#e2c4ff;font-weight:800;padding:5px 10px}
+#endstats .lvup{padding:5px 10px}
+#end{overflow-y:auto;gap:10px!important}
+#banner.gold{color:var(--gold);text-shadow:0 3px 0 #6b4a00,0 0 18px rgba(242,194,48,.6)}#banner.info{color:#fff}
+#btn-emote{position:absolute;left:calc(max(10px,env(safe-area-inset-left,0px)) + 46px);top:calc(8px + env(safe-area-inset-top,0px));width:38px;height:34px;border-radius:6px}
+#emotes{pointer-events:auto;position:absolute;left:max(10px,env(safe-area-inset-left,0px));top:calc(48px + env(safe-area-inset-top,0px));display:none;grid-template-columns:repeat(3,auto);gap:6px;background:rgba(7,26,32,.88);border:1px solid var(--line);border-radius:6px;padding:8px;z-index:6}
+#emotes.on{display:grid}#emotes button{font:inherit;font-weight:800;font-size:13px;color:#fff;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:4px;padding:8px 10px;min-width:96px;text-align:left}
+#emotes button small{display:block;font-weight:600;font-size:10px;color:var(--muted)}#emotes button.lock{opacity:.45}
+.card.lock{opacity:.5}.card .lk{display:block;font-size:11px;color:var(--gold);font-weight:800;margin-top:2px}
+
 .endbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 /* Hochformat-Hinweis */
 #rotate{position:fixed;inset:0;z-index:40;background:rgba(7,26,32,.95);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:0 max(24px,env(safe-area-inset-right,0px)) 0 max(24px,env(safe-area-inset-left,0px))}
@@ -285,6 +298,8 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
     <div id="slots"></div>
   </div>
   <div class="b" id="btn-pause" data-b="pause" style="border-radius:6px"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></div>
+  <div class="b" id="btn-emote" data-b="emote"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14c1 2 2.5 3 4 3s3-1 4-3M9 9.5v.5M15 9.5v.5"/></svg></div>
+  <div id="emotes"></div>
   <div class="b" id="btn-fire" data-b="fire"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span class="lb">FEUER</span></div>
   <div class="b" id="btn-fire2" data-b="fire2"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></div>
   <div class="b" id="btn-aim" data-b="aim"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/></svg><span class="lb">ZIELEN</span></div>

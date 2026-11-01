@@ -15,13 +15,14 @@ function menuCamera(dt) {
   const off = ZR.panel ? 1.25 : 1.0; ZR.camera.position.set(cx, MENU_SPOT.y + 1.45 + Math.sin(t * 0.3) * 0.08, cz); ZR.camera.lookAt(MENU_SPOT.x - rx * off, MENU_SPOT.y + 1.1, MENU_SPOT.z - rz * off);
   m.root.rotation.y = Math.atan2(cx - MENU_SPOT.x, cz - MENU_SPOT.z) + Math.sin(t * 0.4) * 0.3 - 0.35; m.c.gunKey = ZR.panel === 'weapons' ? (ZR.menuWeapon || 'ar') : 'ar'; m.c.gunRar = ZR.panel === 'weapons' ? 2 : 4;
   m.c.pitch = Math.sin(t * 0.8) * 0.05; m.c.idle = !ZR.panel; animateChar(m, m.c, dt); m.torso.position.y = 0.95 + Math.sin(t * 2) * 0.01;
-  ZR.camera.fov = 55; ZR.camera.updateProjectionMatrix(); ZR.sun.position.set(MENU_SPOT.x + 180, 260, MENU_SPOT.z + 120); ZR.sun.target.position.set(MENU_SPOT.x, 0, MENU_SPOT.z);
+  ZR.camera.fov = 55; ZR.camera.updateProjectionMatrix(); ZR.sun.position.set(MENU_SPOT.x + ATM.sunOff.x, ATM.sunOff.y, MENU_SPOT.z + ATM.sunOff.z); ZR.sun.target.position.set(MENU_SPOT.x, 0, MENU_SPOT.z);
 }
 
 // ---------------- Match starten ----------------
 function clearMatch() {
   for (const c of M.chars) { ZR.scene.remove(c.model.root); if (c.gliderM) ZR.scene.remove(c.gliderM); }
   for (const it of M.items) if (it.m) ZR.scene.remove(it.m); for (const g of M.grenades) ZR.scene.remove(g.m); for (const ch of M.chestObjs) ZR.scene.remove(ch.m);
+  clearSecrets(); ZR.victoryCam = false;
   M.chars = []; M.items = []; M.grenades = []; M.chestObjs = []; M.shots = []; M.feed = []; $('feed').innerHTML = ''; FX.clear(); UI.slotSig = ''; UI.swapItem = null;
   for (const d of W.doors) { d.open = 0; d.pivot.rotation.y = 0; d.col.on = true; }
 }
@@ -40,6 +41,7 @@ function loadMatch() {
     () => { // Loot verteilen
       for (const s of W.lootSpots) if (Math.random() < (s.q >= 40 ? 1 : 0.75)) spawnRandomLoot(s.x, s.y + 0.3, s.z, s.q || 0);
       for (let i = 0; i < 140; i++) { const x = rand(-470, 470), z = rand(-470, 470); if (heightAt(x, z) > 3 && Math.random() < 0.8) spawnRandomLoot(x, heightAt(x, z) + 0.5, z); }
+      spawnSecrets(); rollAtmosphere();
       for (const p of W.chests) { const m = makeChestMesh(); m.position.set(p.x, p.y, p.z); m.rotation.y = p.rot != null ? p.rot : Math.random() * 6; ZR.scene.add(m); M.chestObjs.push({ x: p.x, y: p.y, z: p.z, m, open: false, t: 0 }); }
     },
     () => { // Spieler
@@ -52,14 +54,14 @@ function loadMatch() {
 }
 function beginLobby() {
   if (ZR.lobbyMesh) ZR.lobbyMesh.visible = true;
-  M.state = 'lobby'; M.lobbyT = 15; M.time = 0; M.ended = false; M.paused = false; M.aliveCount = M.chars.length; M.stats = { wk: {}, start: performance.now() };
+  M.unl0 = unlockedSet(); M.state = 'lobby'; M.lobbyT = 15; M.time = 0; M.ended = false; M.paused = false; M.aliveCount = M.chars.length; M.stats = { wk: {}, start: performance.now() };
   BUS.active = false; BUS.m.visible = false; S.mesh && (S.mesh.visible = false);
   show('hud'); Audio.playMusic('match'); 
   $('btn-fire2').style.display = Settings.leftFire ? 'flex' : 'none';
 }
 function beginBus() {
   if (ZR.lobbyMesh) ZR.lobbyMesh.visible = false;
-  M.state = 'play'; M.time = 0; startBus(); initStorm();
+  M.state = 'play'; M.time = 0; startBus(); initStorm(); rainSound(RAIN.on); setTimeout(() => { if (M.state === 'play') UI.banner(TODS[ATM.tod].name.toUpperCase() + ' · ' + WEATHERS[ATM.weather].name.toUpperCase(), 'info'); }, 2600);
   for (const c of M.chars) {
     c.mode = 'bus'; c.model.root.visible = false; c.hp = 100; c.shield = 0;
     if (!c.isPlayer) { // Landeziel wählen
@@ -111,6 +113,7 @@ function updatePlayer(dt) {
   if (p.mode === 'sky' || p.mode === 'glide') { airUpdate(p, dt, wx * mag, wz * mag); Input.jump = false; return; }
   // Boden
   if (!p.alive) return;
+  if (p.emote) { p.emoteT -= dt; if (!ZR.victoryCam && (mag > 0.05 || Input.fire || Input.firePressed || Input.aim || Input.jump || p.emoteT <= 0)) stopEmote(p); }
   const w = curWeapon(p); p.ads = !!(Input.aim && (w || !curSlot(p))) && p.mode === 'ground';
   const sprint = mag > 0.93 && !p.ads && !Input.fire && !p.crouch && p.healT <= 0 && (K.ShiftLeft || isTouch || jy < 0); p.sprint = sprint && mag > 0;
   let speed = p.crouch ? 2.8 : p.ads ? 3.6 : sprint ? 8.4 : 6.2 * Math.max(0.45, mag); if (p.healT > 0) speed = Math.min(speed, 2.8); if (p.inWater) speed *= 0.6;
@@ -123,7 +126,7 @@ function updatePlayer(dt) {
   // Blickrichtung des Körpers
   const aiming = Input.fire || p.ads || w && p.animSpeed < 0.5 || p.fireCD > -0.6;
   const moveYaw = p.animSpeed > 0.5 ? Math.atan2(p.vx, p.vz) : p.yaw; const wantYaw = (aiming && w) || !p.sprint ? (p.animSpeed > 0.5 && !w && !aiming ? moveYaw : p.camYaw) : moveYaw;
-  p.yaw += angDiff(p.yaw, wantYaw) * Math.min(1, dt * 14); p.pitch = p.camPitch;
+  if (!p.emote) p.yaw += angDiff(p.yaw, wantYaw) * Math.min(1, dt * 14); p.pitch = p.camPitch;
   weaponUpdate(p, dt); p.hitT = Math.max(0, p.hitT - dt);
   // Loot: automatisch aufheben & Truhen
   UI.swapItem = null; let bestD = 2.4 * 2.4;
@@ -166,6 +169,11 @@ function aimRay() {
 }
 function updateCamera(dt) {
   const p = M.player, cam = ZR.camera; const w = curWeapon(p);
+  if ((p.emote || ZR.victoryCam) && (p.mode === 'ground' || p.mode === 'lobby')) { // Emote-/Siegeskamera von vorne
+    const a = p.yaw + (ZR.victoryCam ? 0.5 + M.time * 0.45 : 0.4); let d = ZR.victoryCam ? 4.6 : 3.6; const px = p.x, py = p.y + 1.35, pz = p.z, dx = Math.sin(a), dz = Math.cos(a);
+    d = Math.max(1.2, Math.min(d, rayWorld(px, py, pz, dx, 0.05, dz, d + 0.3) - 0.3)); cam.position.set(px + dx * d, py + 0.2, pz + dz * d); cam.lookAt(px, p.y + 1.0, pz);
+    cam.fov += (62 - cam.fov) * Math.min(1, dt * 6); cam.updateProjectionMatrix(); p.model.root.visible = true; ZR.sun.position.set(p.x + ATM.sunOff.x, p.y + ATM.sunOff.y, p.z + ATM.sunOff.z); ZR.sun.target.position.set(p.x, p.y, p.z); return;
+  }
   let fov = 72; if (p.ads && w) fov = WEAPONS[w.key].scope ? 72 / WEAPONS[w.key].zoom : 72 / Math.min(WEAPONS[w.key].zoom, 1.5);
   if (p.sprint && p.animSpeed > 7) fov = 78; cam.fov += (fov - cam.fov) * Math.min(1, dt * 12); cam.updateProjectionMatrix();
   const f = camForward(); const rxv = -Math.cos(p.camYaw), rzv = Math.sin(p.camYaw);
@@ -183,26 +191,42 @@ function updateCamera(dt) {
   cam.lookAt(cam.position.x + f.x, cam.position.y + f.y + (p.recoilP || 0), cam.position.z + f.z);
   p.model.root.visible = !(p.ads && w && WEAPONS[w.key].scope) && p.mode !== 'bus' && (p.alive || p.deathT < 0.6);
   // Schatten folgt
-  ZR.sun.position.set(p.x + 180 * 0.6, p.y + 260 * 0.6, p.z + 120 * 0.6); ZR.sun.target.position.set(p.x, p.y, p.z);
+  ZR.sun.position.set(p.x + ATM.sunOff.x, p.y + ATM.sunOff.y, p.z + ATM.sunOff.z); ZR.sun.target.position.set(p.x, p.y, p.z);
 }
 
 // ---------------- Ende ----------------
 function endMatch(win) {
-  if (M.state === 'end') return; const p = M.player; M.state = 'end'; Audio.setStorm(0); if (document.exitPointerLock) document.exitPointerLock();
-  const place = win ? 1 : p.placement || M.aliveCount + 1; const surv = Math.round(M.time);
-  const xp = Math.round((100 - place) * 4 + p.kills * 60 + (win ? 600 : 0) + surv * 0.6 + p.dmgDone * 0.2);
-  const P = Profile; P.matches++; if (win) P.wins++; else P.deaths++; if (place <= 10) P.top10++; P.kills += p.kills; P.damage += p.dmdDone || p.dmgDone; P.bestPlace = Math.min(P.bestPlace, place); P.playTime += (performance.now() - M.stats.start) / 1000;
-  for (const k in M.stats.wk) P.weaponKills[k] = (P.weaponKills[k] || 0) + M.stats.wk[k];
+  if (M.state === 'end') return; const p = M.player; M.state = 'end'; Audio.setStorm(0); rainSound(false); if (document.exitPointerLock) document.exitPointerLock();
+  const st = M.stats; const place = win ? 1 : p.placement || M.aliveCount + 1; const surv = Math.round(M.time);
+  const secretXP = (st.secrets || 0) * 300;
+  const xp = Math.round((100 - place) * 4 + p.kills * 60 + (win ? 600 : 0) + surv * 0.6 + p.dmgDone * 0.2) + secretXP;
+  const unl0 = M.unl0 || unlockedSet();
+  const P = Profile; P.matches++; if (win) P.wins++; else P.deaths++; if (place <= 10) P.top10++; P.kills += p.kills; P.damage += p.dmgDone; P.bestPlace = Math.min(P.bestPlace, place); P.playTime += (performance.now() - st.start) / 1000;
+  for (const k in st.wk) P.weaponKills[k] = (P.weaponKills[k] || 0) + st.wk[k];
   P.history = [{ place, kills: p.kills, dmg: p.dmgDone, xp, date: new Date().toLocaleDateString('de-CH') }].concat(P.history || []).slice(0, 20);
+  const acc = st.shots ? Math.round(Math.min(1, (st.hits || 0) / st.shots) * 100) : 0;
+  // Persönliche Bestwerte
+  P.best = P.best || {}; const rec = [];
+  const chk = (k, v, label) => { if (v > 0 && v > (P.best[k] || 0)) { if (P.best[k] != null) rec.push(label); P.best[k] = v; } };
+  chk('kills', p.kills, 'Eliminierungen'); chk('dmg', Math.round(p.dmgDone), 'Schaden'); chk('surv', surv, 'Überlebenszeit'); chk('longest', Math.round(st.longest || 0), 'Weitester Kill');
   const lv = addXP(xp); saveProfile();
+  const newU = [...unlockedSet()].filter(u => !unl0.has(u));
   win ? Audio.victory() : Audio.defeat(); Audio.playMusic('menu');
   const e = $('end'); e.classList.remove('win', 'lose'); e.classList.add(win ? 'win' : 'lose');
   $('endtitle').innerHTML = win ? 'ZIEGENFISCH-SIEG!<small>Halb Ziege. Halb Fisch. 100 % Sieg.</small>' : 'ELIMINIERT<small>' + (p.lastAtt ? 'von ' + esc(p.lastAtt.name) : 'vom Sturm erwischt') + '</small>';
   const t = Math.floor(surv / 60) + ':' + String(surv % 60).padStart(2, '0');
-  $('endstats').innerHTML = [['Platzierung', '#' + place], ['Eliminierungen', p.kills], ['Überlebt', t], ['Schaden', Math.round(p.dmgDone)], ['Erfahrung', '+' + xp + ' XP']].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('') + (lv ? `<div class="lvup">LEVEL UP! Jetzt Level ${P.level}</div>` : '');
-  setTimeout(() => show('end'), 50);
+  const cell = ([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`;
+  $('endstats').innerHTML = [['Platzierung', '#' + place], ['Eliminierungen', p.kills], ['Überlebt', t], ['Schaden', Math.round(p.dmgDone)], ['Erfahrung', '+' + xp + ' XP']].map(cell).join('')
+    + `<div class="endmore">${[['Treffer', acc + ' %'], ['Kopftreffer', st.heads || 0], ['Weitester Kill', st.longest ? Math.round(st.longest) + ' m' : '–'], ['Truhen', st.chests || 0], ['Geheilt', Math.round(st.healed || 0)]].map(cell).join('')}</div>`
+    + (rec.length ? `<div class="rec">NEUER REKORD: ${rec.join(' · ')}</div>` : '') + (st.secrets ? `<div class="rec">Geheimnis gefunden! +${secretXP} XP</div>` : '')
+    + (lv ? `<div class="lvup">LEVEL UP! Jetzt Level ${P.level}</div>` : '') + (newU.length ? `<div class="unl">Freigeschaltet: ${newU.map(unlockName).join(', ')}</div>` : '');
+  if (win) { // Siegestanz mit Kamera-Fahrt und Konfetti
+    ZR.victoryCam = true; stopEmote(p); p.emote = 'tanz'; p.emoteT = 99; p.emoteA = 0; Audio.emote('tanz');
+    let n = 0; const conf = setInterval(() => { if (M.state !== 'end' || ++n > 14) return clearInterval(conf); for (let i = 0; i < 3; i++) FX.burst(p.x + rand(-3, 3), p.y + rand(3, 5), p.z + rand(-3, 3), 14, rand(0.4, 1), rand(0.4, 1), rand(0.4, 1), 4, 1.6, 0.22, 6); }, 250);
+    UI.banner('ZIEGENFISCH-SIEG!', 'gold'); setTimeout(() => { if (M.state === 'end') show('end'); }, 3800);
+  } else setTimeout(() => show('end'), 50);
 }
-function backToMenu() { if (ZR.lobbyMesh) ZR.lobbyMesh.visible = false; clearMatch(); M.state = 'menu'; M.player = null; BUS.m.visible = false; if (S.mesh) S.mesh.visible = false; show('menu'); refreshMenu(); Audio.playMusic('menu'); ZR.panel = null; }
+function backToMenu() { if (ZR.lobbyMesh) ZR.lobbyMesh.visible = false; clearMatch(); applyAtmosphere('mittag', 'klar'); rainSound(false); M.state = 'menu'; M.player = null; BUS.m.visible = false; if (S.mesh) S.mesh.visible = false; show('menu'); refreshMenu(); Audio.playMusic('menu'); ZR.panel = null; }
 
 // ---------------- Hauptschleife ----------------
 let last = performance.now(), fpsAcc = 0, fpsN = 0, hudT = 0, mmT = 0, itemT = 0, simAcc = 0;
@@ -211,6 +235,7 @@ function loop(now) {
   fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { const f = fpsN / fpsAcc; $('fps').textContent = Math.round(f) + ' FPS' + (ZR.dynRes < 1 ? ' · ' + Math.round(ZR.dynRes * 100) + '%' : ''); fpsAcc = 0; fpsN = 0;
     // Automatische Auflösung: hält die Bildrate stabil
     if (M.state === 'play' && !M.paused) { ZR.dynRes = ZR.dynRes || 1; if (f < 28 && ZR.dynRes > 0.6) { ZR.dynRes = Math.max(0.6, ZR.dynRes - 0.1); onResize(); } else if (f > 52 && ZR.dynRes < 1) { ZR.dynRes = Math.min(1, ZR.dynRes + 0.05); onResize(); } } }
+  updateWeather(dt);
   updateEnv(dt, M.player && !ZR.menuVisible ? M.player.x : MENU_SPOT.x, M.player && !ZR.menuVisible ? M.player.z : MENU_SPOT.z);
   if (ZR.menuVisible || M.state === 'menu') { menuCamera(dt); FX.update(dt); ZR.renderer.render(ZR.scene, ZR.camera); return; }
   if (M.state === 'lobby' || M.state === 'play' || M.state === 'end') { if (!M.paused) step(dt); }
@@ -244,7 +269,7 @@ function step(dt) {
     if (!c.model.root.visible) continue; const m = c.model; m.root.position.set(c.x, c.y, c.z); m.root.rotation.y = c.yaw;
     const ad = dist2(c.x, c.z, p.x, p.z); if (c.isPlayer || ad < 60 * 60 || (ad < 120 * 120 ? (M.frame + c.id) % 2 === 0 : (M.frame + c.id) % 6 === 0)) animateChar(m, c, ad < 3600 ? dt : dt * (ad < 14400 ? 2 : 6));
   }
-  updateGrenades(dt); updateChests(dt); FX.update(dt);
+  updateGrenades(dt); updateChests(dt); if (M.state === 'play') updateSecrets(dt); FX.update(dt);
   updateDoors(dt, M.chars.filter(c => c.mode === 'ground' && dist2(c.x, c.z, p.x, p.z) < 160 * 160));
   // Alte Schüsse entfernen
   if (M.shots.length > 200) M.shots.splice(0, M.shots.length - 150);

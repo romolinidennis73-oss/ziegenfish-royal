@@ -113,6 +113,7 @@ function animateChar(m, c, dt) {
   if (c.landT > 0) { c.landT -= dt; m.body.position.y -= c.landT * 0.9; m.legL.rotation.x = -c.landT * 2.2; m.legR.rotation.x = -c.landT * 2.2; m.torso.rotation.x += c.landT * 0.8; }
   if (c.healT > 0 && c.healKey && Math.random() < dt * 14) { const it = ITEMS[c.healKey]; const sh = it.shield && !it.heal; FX.spawn(c.x + rand(-0.45, 0.45), c.y + rand(0.2, 1.4), c.z + rand(-0.45, 0.45), 0, 1.6, 0, sh ? 0.3 : 0.4, sh ? 0.75 : 1.0, sh ? 1.3 : 0.45, 0.7, 0.16); }
   if (m.gun) m.gun.position.z = -recoil * 0.08;
+  if (c.emote) emotePose(m, c, dt); else if (m.gun && !m.gun.visible) m.gun.visible = true;
 }
 
 // ---------------- Waffen ----------------

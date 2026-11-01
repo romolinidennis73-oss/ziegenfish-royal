@@ -16,7 +16,7 @@ function initRenderer() {
   const scene = new THREE.Scene(); ZR.scene = scene;
   scene.fog = new THREE.Fog(0xb9cde0, 80, Settings.quality === 'niedrig' ? 330 : 520);
   const cam = new THREE.PerspectiveCamera(70, 1, 0.1, 2400); ZR.camera = cam;
-  const hemi = new THREE.HemisphereLight(0xcfe6ff, 0x4a5a32, 0.6); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight(0xcfe6ff, 0x4a5a32, 0.6); scene.add(hemi); ZR.hemi = hemi;
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.35); sun.position.set(180, 260, 120);
   sun.castShadow = true; const sc = sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 10; sc.far = 700;
   sun.shadow.mapSize.set(Settings.quality === 'hoch' ? 2048 : 1024, Settings.quality === 'hoch' ? 2048 : 1024); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
@@ -282,11 +282,11 @@ function buildSky() {
   const g = new THREE.SphereGeometry(2000, 32, 16);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { sunDir: { value: ZR.sunDir } },
+    uniforms: { sunDir: { value: ZR.sunDir }, uTop: { value: new THREE.Color(0.16, 0.38, 0.72) }, uHor: { value: new THREE.Color(0.73, 0.82, 0.9) }, uSun: { value: 1 } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_Position.z = gl_Position.w; }',
-    fragmentShader: `varying vec3 vP; uniform vec3 sunDir; void main(){ float h = vP.y; vec3 top = vec3(0.16,0.38,0.72); vec3 hor = vec3(0.73,0.82,0.9);
+    fragmentShader: `varying vec3 vP; uniform vec3 sunDir; uniform vec3 uTop; uniform vec3 uHor; uniform float uSun; void main(){ float h = vP.y; vec3 top = uTop; vec3 hor = uHor;
       vec3 c = mix(hor, top, smoothstep(0.0, 0.5, h)); c = mix(c, vec3(0.55,0.6,0.62), smoothstep(0.0,-0.2,h));
-      float s = max(dot(normalize(vP), normalize(sunDir)), 0.0); c += vec3(1.0,0.85,0.6)*pow(s, 600.0)*3.0 + vec3(1.0,0.8,0.5)*pow(s,8.0)*0.25;
+      float s = max(dot(normalize(vP), normalize(sunDir)), 0.0); c += (vec3(1.0,0.85,0.6)*pow(s, 600.0)*3.0 + vec3(1.0,0.75,0.45)*pow(s,8.0)*0.35) * uSun;
       gl_FragColor = vec4(c,1.0); }`
   });
   const sky = new THREE.Mesh(g, mat); sky.renderOrder = -1; ZR.scene.add(sky); ZR.sky = sky;
@@ -683,7 +683,7 @@ function buildWorld(progress) {
   const steps = [
     () => { defineZones(); buildHeightmap(); }, () => { buildSky(); buildTerrain(ZR.tex); }, () => buildRoads(), () => buildCity(), () => buildVillage(), () => { buildIndustrial(); buildWarehouse(); },
     () => { buildGasStation(); buildMilitary(); for (const [x, z] of W.huts) hut(x, z); for (let i = 0; i < 40; i++) { const x = rand(-450, 450), z = rand(-450, 450); if (heightAt(x, z) > 3 && !zoneAt(x, z)) crate(x, z); } },
-    () => { buildMall(); scatterProps(); scatterStreetProps(); }, () => placeTrees(), () => buildGrass(),
+    () => { buildMall(); scatterProps(); scatterStreetProps(); }, () => { placeTrees(); placeSecrets(); }, () => buildGrass(),
     () => {
       const mats = {
         solid: new THREE.MeshStandardMaterial({ vertexColors: true, map: ZR.tex.concrete, roughness: 0.85 }),

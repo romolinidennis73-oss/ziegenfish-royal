@@ -31,7 +31,7 @@ const Store = {
 
 const DEFAULT_SETTINGS = {
   music: 0.5, sfx: 0.8, camSens: 1.0, joySens: 1.0, quality: 'mittel', autoFire: false, aimRadius: 1.0,
-  showFps: false, controlHelp: true, aimAssist: 'sehr', difficulty: 'leicht', duration: 'kurz', leftFire: true
+  showFps: false, controlHelp: true, aimAssist: 'sehr', difficulty: 'leicht', duration: 'kurz', leftFire: true, weather: 'zufall'
 };
 const Settings = Object.assign({}, DEFAULT_SETTINGS, Store.get('settings', {}));
 if (!Settings.v2) { Settings.v2 = true; Settings.aimAssist = 'sehr'; Settings.difficulty = 'leicht'; Settings.quality = 'mittel'; }
@@ -42,7 +42,7 @@ function saveSettings() { Store.set('settings', Settings); }
 const DEFAULT_PROFILE = {
   name: 'Ziegenfish_2', xp: 0, level: 1, wins: 0, kills: 0, matches: 0, deaths: 0, top10: 0,
   damage: 0, bestPlace: 100, playTime: 0, skin: 'ziegenfisch', glider: 'flosse', trail: 'blasen',
-  weaponKills: {}, history: []
+  weaponKills: {}, history: [], best: {}, secrets: {}
 };
 const Profile = Object.assign({}, DEFAULT_PROFILE, Store.get('profile', {}));
 function saveProfile() { Store.set('profile', Profile); }
@@ -107,6 +107,9 @@ const Audio = {
   hurt() { if (!this.ctx) return; const t = this.ctx.currentTime; this.noise(t, 0.15, 400, 1, 0.4, 'lowpass'); this.tone(t, 160, 0.15, 0.2, 'sawtooth', null, 90); },
   elim() { if (!this.ctx) return; const t = this.ctx.currentTime;[880, 1175, 1568].forEach((f, i) => this.tone(t + i * 0.07, f, 0.25, 0.18, 'triangle')); },
   pickup() { if (!this.ctx) return; const t = this.ctx.currentTime; this.tone(t, 660, 0.08, 0.15, 'sine'); this.tone(t + 0.06, 990, 0.1, 0.15, 'sine'); },
+  emote(k) { if (!this.ctx) return; const t = this.ctx.currentTime;
+    if (k === 'maeh') { const o = this.ctx.createOscillator(), g = this.ctx.createGain(), l = this.ctx.createOscillator(), lg = this.ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = 420; l.frequency.value = 22; lg.gain.value = 60; l.connect(lg); lg.connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + 0.7); o.connect(g); g.connect(this.sfxGain); o.start(t); l.start(t); o.stop(t + 0.75); l.stop(t + 0.75); return; }
+    const mel = { tanz: [523, 659, 784, 659, 880, 784, 659, 523], winken: [660, 880], flex: [392, 523, 659], robot: [330, 330, 494, 330], sieg: [523, 659, 784, 1046] }[k] || [600]; mel.forEach((f, i) => this.tone(t + i * 0.16, f, 0.14, 0.09, k === 'robot' ? 'square' : 'triangle')); },
   chest() { if (!this.ctx) return; const t = this.ctx.currentTime;[523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(t + i * 0.06, f, 0.4, 0.12, 'triangle')); },
   heal() { if (!this.ctx) return; const t = this.ctx.currentTime; this.tone(t, 400, 0.6, 0.12, 'sine', null, 900); },
   ui() { if (!this.ctx) return; this.tone(this.ctx.currentTime, 1200, 0.05, 0.1, 'triangle'); },

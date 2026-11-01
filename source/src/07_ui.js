@@ -53,7 +53,13 @@ function btnDown(b) {
     case 'glide': if (p.mode === 'sky') { p.mode = 'glide'; Audio.whoosh(); } break;
     case 'map': toggleBigMap(); break;
     case 'pause': togglePause(true); break;
+    case 'emote': toggleEmotes(); break;
   }
+}
+function toggleEmotes(force) {
+  const el = $('emotes'); const on = force != null ? force : !el.classList.contains('on'); el.classList.toggle('on', on); if (!on) return;
+  el.innerHTML = ''; for (const k in EMOTES) { const ok = isUnlocked('emote', k); const b = document.createElement('button'); if (!ok) b.className = 'lock'; b.innerHTML = esc(EMOTES[k].name) + `<small>${ok ? 'Antippen zum Abspielen' : '🔒 ' + lockText('emote', k)}</small>`;
+    b.onpointerdown = ev => { ev.stopPropagation(); if (!ok) { UI.toast(lockText('emote', k)); return; } const p = M.player; if (p && p.alive) { startEmote(p, k); } toggleEmotes(false); }; el.appendChild(b); }
 }
 function btnUp(b) { if (b === 'fire' || b === 'fire2') Input.fire = false; }
 function selectSlot(i) { const p = M.player; if (!p || !p.alive) return; if (p.sel !== i) { p.sel = i; p.reloadT = 0; p.healT = 0; p.burstLeft = 0; syncHeld(p); Audio.ui(); p.fireCD = Math.max(p.fireCD, 0.25); } }
@@ -176,9 +182,11 @@ function openPanel(kind) {
     title.textContent = 'Spind';
     const sec = (t) => { const h = document.createElement('h3'); h.textContent = t; body.appendChild(h); };
     sec('Gleiter (beim Absprung aus dem Blubb-Zeppelin)');
-    for (const k in GLIDERS) { const g = GLIDERS[k]; const d = document.createElement('button'); d.className = 'card small' + (Profile.glider === k ? ' sel' : ''); d.innerHTML = `<div class="sw" style="background:linear-gradient(90deg,#${g.col.toString(16).padStart(6, '0')},#${g.col2.toString(16).padStart(6, '0')})"></div><b>${g.name}</b>`; d.onclick = () => { Profile.glider = k; saveProfile(); Audio.ui(); openPanel('locker'); }; body.appendChild(d); }
+    for (const k in GLIDERS) { const g = GLIDERS[k], ok = isUnlocked('glider', k); const d = document.createElement('button'); d.className = 'card small' + (Profile.glider === k ? ' sel' : '') + (ok ? '' : ' lock'); d.innerHTML = `<div class="sw" style="background:linear-gradient(90deg,#${g.col.toString(16).padStart(6, '0')},#${g.col2.toString(16).padStart(6, '0')})"></div><b>${g.name.replace(/ \(.*\)/, '')}</b>${ok ? '' : `<span class="lk">🔒 ${lockText('glider', k)}</span>`}`; d.onclick = () => { if (!ok) { UI.toast(lockText('glider', k)); return; } Profile.glider = k; saveProfile(); Audio.ui(); openPanel('locker'); }; body.appendChild(d); }
     sec('Flugspur (im freien Fall)');
-    for (const k in TRAILS) { const g = TRAILS[k]; const d = document.createElement('button'); d.className = 'card small' + (Profile.trail === k ? ' sel' : ''); d.innerHTML = `<div class="sw" style="background:${g.col ? '#' + g.col.toString(16).padStart(6, '0') : '#333'}"></div><b>${g.name}</b>`; d.onclick = () => { Profile.trail = k; saveProfile(); Audio.ui(); openPanel('locker'); }; body.appendChild(d); }
+    for (const k in TRAILS) { const g = TRAILS[k], ok = isUnlocked('trail', k); const d = document.createElement('button'); d.className = 'card small' + (Profile.trail === k ? ' sel' : '') + (ok ? '' : ' lock'); d.innerHTML = `<div class="sw" style="background:${k === 'regenbogen' ? 'linear-gradient(90deg,#ff4d5e,#ffd447,#4fc34a,#3a9bff,#b45cff)' : g.col ? '#' + g.col.toString(16).padStart(6, '0') : '#333'}"></div><b>${g.name.replace(/ \(.*\)/, '')}</b>${ok ? '' : `<span class="lk">🔒 ${lockText('trail', k)}</span>`}`; d.onclick = () => { if (!ok) { UI.toast(lockText('trail', k)); return; } Profile.trail = k; saveProfile(); Audio.ui(); openPanel('locker'); }; body.appendChild(d); }
+    sec('Emotes (im Match oben links über den Smiley-Knopf)');
+    for (const k in EMOTES) { const ok = isUnlocked('emote', k); const d = document.createElement('button'); d.className = 'card small' + (ok ? '' : ' lock'); d.innerHTML = `<div class="sw" style="background:linear-gradient(135deg,#16707a,#f2c230)"></div><b>${EMOTES[k].name}</b>${ok ? '' : `<span class="lk">🔒 ${lockText('emote', k)}</span>`}`; d.onclick = () => { if (!ok) { UI.toast(lockText('emote', k)); return; } Audio.emote(k); if (menuChar) { menuChar.c.emote = k; menuChar.c.emoteA = 0; setTimeout(() => { menuChar.c.emote = null; }, EMOTES[k].dur * 1000); } }; body.appendChild(d); }
     sec('Ausrüstung im Match: 5 Plätze für Waffen, Heilung, Schilde und Granaten. Munition liegt separat im Rucksack.');
   } else if (kind === 'weapons') {
     title.textContent = 'Waffen';
@@ -198,6 +206,8 @@ function openPanel(kind) {
     title.textContent = 'Statistiken'; const P = Profile; const kd = (P.kills / Math.max(1, P.deaths)).toFixed(2); const pt = Math.round(P.playTime / 60);
     const fav = Object.entries(P.weaponKills || {}).sort((a, b) => b[1] - a[1])[0];
     body.innerHTML = `<div class="stats">${[['Matches', P.matches], ['Siege', P.wins], ['Top 10', P.top10], ['Eliminierungen', P.kills], ['K/D', kd], ['Schaden gesamt', Math.round(P.damage)], ['Beste Platzierung', P.matches ? '#' + P.bestPlace : '–'], ['Spielzeit', pt + ' Min.'], ['Level', P.level], ['Lieblingswaffe', fav ? itemName(fav[0]) : '–']].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('')}</div>
+      <h3>Persönliche Bestwerte</h3><div class="stats">${[['Meiste Elims', (P.best || {}).kills || 0], ['Meister Schaden', (P.best || {}).dmg || 0], ['Längstes Überleben', (P.best || {}).surv ? Math.floor(P.best.surv / 60) + ':' + String(P.best.surv % 60).padStart(2, '0') : '–'], ['Weitester Kill', (P.best || {}).longest ? P.best.longest + ' m' : '–']].map(([a, b]) => `<div><small>${a}</small><b>${b}</b></div>`).join('')}</div>
+      <h3>Geheimnisse ${secretCount()}/3</h3><div class="hist">${SECRETS.map(x => `<div><b>${(P.secrets || {})[x.id] ? '✔ ' + esc(x.name) : '❓ ???'}</b> <small>${(P.secrets || {})[x.id] ? 'gefunden' : esc(x.hint)}</small></div>`).join('')}</div>
       <h3>Letzte Matches</h3><div class="hist">${(P.history || []).slice(0, 8).map(h => `<div><b>#${h.place}</b> · ${h.kills} Elims · ${Math.round(h.dmg)} Schaden · +${h.xp} XP <small>${h.date}</small></div>`).join('') || '<p>Noch keine Matches gespielt.</p>'}</div>`;
   }
 }
@@ -211,6 +221,7 @@ function buildSettings(body) {
   choice('aimAssist', 'Zielhilfe (Aim Assist)', [['stark', 'Stark'], ['sehr', 'Sehr stark'], ['max', 'Maximal']]); slider('aimRadius', 'Zielhilfe-Radius', 0.5, 1.6, 0.1);
   choice('difficulty', 'Bot-Schwierigkeit', [['leicht', 'Einfach'], ['mittel', 'Normal'], ['schwer', 'Schwer']]);
   choice('duration', 'Matchdauer', [['kurz', '8–10 Min.'], ['lang', '~15 Min.']]);
+  choice('weather', 'Tageszeit & Wetter', [['zufall', 'Zufällig'], ['sonne', 'Immer sonnig']]);
   toggle('autoFire', 'Automatisches Schießen'); toggle('showFps', 'FPS-Anzeige'); toggle('controlHelp', 'Steuerungshilfe (Beschriftungen & Tipps)'); toggle('leftFire', 'Zweiter Feuerknopf links');
   const n = row('Spielername', `<input type="text" maxlength="16" value="${esc(Profile.name)}">`); n.querySelector('input').onchange = e => { Profile.name = e.target.value.trim().slice(0, 16) || 'Ziegenfish_2'; saveProfile(); refreshMenu(); };
   const r = row('Statistiken zurücksetzen', `<button class="tg">ZURÜCKSETZEN</button>`); r.querySelector('button').onclick = () => { if (confirm('Wirklich alle Statistiken und Level zurücksetzen?')) { const nm = Profile.name, sk = Profile.skin; Object.assign(Profile, JSON.parse(JSON.stringify(DEFAULT_PROFILE)), { name: nm, skin: sk }); saveProfile(); refreshMenu(); UI.toast('Zurückgesetzt'); } };

@@ -95,6 +95,8 @@ function damage(t, amt, att, wkey, head) {
   if (t.shield > 0) { const s = Math.min(t.shield, left); t.shield -= s; left -= s; shieldHit = true; }
   t.hp -= left; t.hitT = 0.25; t.lastAtt = att; t.lastHitTime = M.time;
   if (att) att.dmgDone += amt;
+  if (att && att.isPlayer && t !== att && M.stats) { M.stats.hits = (M.stats.hits || 0) + 1; if (head) M.stats.heads = (M.stats.heads || 0) + 1; }
+  if (t.emote) stopEmote(t);
   if (att && att.isPlayer) { FX.dmgNum(t.x, t.y + 2, t.z, amt, head, shieldHit && left === 0); UI.hitmarker(head); if (shieldHit && left === 0) Audio.shieldHit(); else Audio.hit(head); }
   if (t.isPlayer) { Audio.hurt(); UI.hurt(att); }
   if (!t.isPlayer && att) { t.threat = att; t.threatT = M.time; }
@@ -107,7 +109,7 @@ function eliminate(t, killer, wkey) {
   const how = !killer ? (t.stormKill ? 'im Sturm verschwunden' : 'ausgeschieden') : null;
   UI.feed(killer, t, wkey, how);
   (M.killLog || (M.killLog = {}))[wkey || 'x'] = (M.killLog[wkey || 'x'] || 0) + 1;
-  if (killer) { killer.kills++; if (killer.isPlayer) { Audio.elim(); UI.banner(pick(['ELIMINIERT  ', 'MÄH-BLUB!  ', 'EINGEFISCHT  ']) + t.name, 'elim'); UI.killPop(killer); M.stats.wk[wkey] = (M.stats.wk[wkey] || 0) + 1; } }
+  if (killer) { killer.kills++; if (killer.isPlayer) { M.stats.longest = Math.max(M.stats.longest || 0, Math.hypot(t.x - killer.x, t.z - killer.z)); Audio.elim(); UI.banner(pick(['ELIMINIERT  ', 'MÄH-BLUB!  ', 'EINGEFISCHT  ']) + t.name, 'elim'); UI.killPop(killer); M.stats.wk[wkey] = (M.stats.wk[wkey] || 0) + 1; } }
   if (t.isPlayer) { M.ended = true; setTimeout(() => endMatch(false), 1800); }
   else if (M.aliveCount === 1 && M.player.alive && !M.ended) { M.ended = true; setTimeout(() => endMatch(true), 1200); }
 }
@@ -131,9 +133,10 @@ function weaponUpdate(c, dt) {
     c.healT -= dt; const it = ITEMS[c.healKey]; const s2 = curSlot(c);
     if (!s2 || s2.key !== c.healKey) { c.healT = 0; return; }
     if (c.healT <= 0) {
+      const before = c.hp + c.shield;
       if (it.heal) c.hp = Math.min(Math.max(c.hp, it.maxHp), Math.min(c.hp + it.heal, it.maxHp));
       if (it.shield) c.shield = Math.min(Math.max(c.shield, it.maxShield), Math.min(c.shield + it.shield, it.maxShield));
-      s2.n--; if (s2.n <= 0) { c.slots[c.sel] = null; syncHeld(c); } if (c.isPlayer) Audio.heal(); FX.burst(c.x, c.y + 1.0, c.z, 16, it.shield && !it.heal ? 0.3 : 0.4, it.shield && !it.heal ? 0.75 : 1.0, it.shield && !it.heal ? 1.3 : 0.45, 2.4, 0.6, 0.25);
+      s2.n--; if (s2.n <= 0) { c.slots[c.sel] = null; syncHeld(c); } if (c.isPlayer) { Audio.heal(); M.stats.healed = (M.stats.healed || 0) + c.hp + c.shield - before; } FX.burst(c.x, c.y + 1.0, c.z, 16, it.shield && !it.heal ? 0.3 : 0.4, it.shield && !it.heal ? 0.75 : 1.0, it.shield && !it.heal ? 1.3 : 0.45, 2.4, 0.6, 0.25);
     }
   }
 }
@@ -176,6 +179,7 @@ function fire(c, ox, oy, oz, dx, dy, dz, extraErr = 0) {
     const res = shootRay(c, ox, oy, oz, ex, ey, ez, w.range, st.dmg, w.head, s.key); endP = res;
     if (pdist < 160 && (p < 3 || c.isPlayer)) FX.tracer(ox, oy, oz, res.x, res.y, res.z);
   }
+  if (c.isPlayer && M.stats) M.stats.shots = (M.stats.shots || 0) + (w.rocket ? 1 : pel);
   s.mag--; c.recoilT = 0.25; c.bloom = Math.min(c.bloom + (w.pellets ? 0 : w.scope ? 2 : 0.35), 4);
   if (w.burst) { if (c.burstLeft <= 0) c.burstLeft = w.burst; c.burstLeft--; c.fireCD = c.burstLeft > 0 ? 1 / st.rate : w.burstDelay; }
   else c.fireCD = 1 / st.rate;
@@ -267,7 +271,7 @@ function makeChestMesh() {
 function openChest(ch, by) {
   if (ch.open) return; ch.open = true; ch.t = 0; ch.by = by; ch.looted = false;
   FX.burst(ch.x, ch.y + 0.7, ch.z, 30, 1.0, 0.85, 0.3, 2.6, 0.8, 0.25);
-  if (by && by.isPlayer) { Audio.chest(); UI.toast && UI.toast('Truhe geöffnet!', '#ffd447'); }
+  if (by && by.isPlayer) { M.stats.chests = (M.stats.chests || 0) + 1; Audio.chest(); UI.toast && UI.toast('Truhe geöffnet!', '#ffd447'); }
 }
 function chestLoot(ch) {
   const S = (key, rar, n, dx, dz) => { const it = spawnItem(key, rar, n, ch.x + dx, ch.y + 0.5, ch.z + dz); it.pop = { t0: M.time, sx: ch.x, sy: ch.y + 0.6, sz: ch.z }; };
