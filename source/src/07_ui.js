@@ -104,7 +104,7 @@ const UI = {
     else if (s) $('ammo').innerHTML = `<small>${esc(ITEMS[s.key].name)} · Feuerknopf = ${ITEMS[s.key].throw ? 'werfen' : 'benutzen'}</small><b>${s.n}</b>`;
     else $('ammo').innerHTML = `<small>Faust</small>`;
     $('reload').style.display = p.reloadT > 0 || p.healT > 0 ? 'block' : 'none';
-    if (p.reloadT > 0 && w) $('reload').textContent = 'Nachladen… ' + p.reloadT.toFixed(1) + 's'; else if (p.healT > 0) $('reload').textContent = itemName(p.healKey) + '… ' + p.healT.toFixed(1) + 's';
+    if (p.reloadT > 0 && w) $('reload').textContent = 'Nachladen… ' + p.reloadT.toFixed(1) + 's'; else if (p.healT > 0) { const it = ITEMS[p.healKey], k = 1 - p.healT / it.use; $('reload').innerHTML = esc(itemName(p.healKey)) + ' … ' + p.healT.toFixed(1) + 's<i class="ub"><i style="width:' + Math.round(k * 100) + '%;background:' + (it.shield && !it.heal ? 'var(--sh)' : it.shield ? 'linear-gradient(90deg,var(--hp),var(--sh))' : 'var(--hp)') + '"></i></i>'; }
     $('xhair').className = (p.ads ? 'ads' : '') + (w && WEAPONS[w.key].pellets ? ' sg' : '');
     const spread = w ? (WEAPONS[w.key].scope && !p.ads ? WEAPONS[w.key].hipSpread : wStat(w.key, w.rar).spread * (p.ads ? 0.55 : 1)) + p.bloom : 2;
     $('xhair').style.setProperty('--sp', (8 + spread * 7 * (1 + Math.hypot(p.vx, p.vz) / 12)) + 'px');

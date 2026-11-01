@@ -90,7 +90,7 @@ function airUpdate(c, dt, wx, wz) {
   if (Math.hypot(c.vx, c.vz) > 1) c.yaw += angDiff(c.yaw, Math.atan2(c.vx, c.vz)) * Math.min(1, dt * 3);
   const g2 = groundAt(c.x, c.z, c.y, 0.5, 0.25); const wl = waterAt(c.x, c.z);
   if (c.y <= Math.max(g2, wl - 1.25)) { c.y = Math.max(g2, wl - 1.25); c.vy = 0; c.mode = 'ground'; c.glide = c.skydive = false; c.onGround = true; if (c.gliderM) { ZR.scene.remove(c.gliderM); c.gliderM = null; }
-    if (c.isPlayer) { const z = W.pois.reduce((b, p) => { const d = Math.hypot(p.x - c.x, p.z - c.z); return d < b[0] ? [d, p] : b; }, [1e9, null]); UI.banner(z[1] && z[0] < 160 ? z[1].name.toUpperCase() : 'GELANDET', 'info'); } }
+    c.landT = 0.35; if (c.isPlayer) { Audio.step(0); FX.burst(c.x, c.y + 0.1, c.z, 14, 0.75, 0.7, 0.62, 3, 0.6, 0.4); const z = W.pois.reduce((b, p) => { const d = Math.hypot(p.x - c.x, p.z - c.z); return d < b[0] ? [d, p] : b; }, [1e9, null]); UI.banner(z[1] && z[0] < 160 ? z[1].name.toUpperCase() : 'GELANDET', 'info'); } }
   if (c.gliderM) { c.gliderM.position.set(c.x, c.y, c.z); c.gliderM.rotation.y = c.yaw; }
   if (c.mode === 'sky' && c.isPlayer && TRAILS[Profile.trail].col) { const tc = new THREE.Color(TRAILS[Profile.trail].col); if (Math.random() < 0.7) FX.spawn(c.x + rand(-.3, .3), c.y + 1, c.z + rand(-.3, .3), 0, 8, 0, tc.r, tc.g, tc.b, 0.8, 0.4); }
   c.animSpeed = 0;
@@ -172,7 +172,7 @@ function updateCamera(dt) {
   let pivot, dist, side;
   if (p.mode === 'bus') { const [x, z] = busPos(BUS.t); pivot = new THREE.Vector3(x, BUS.y - 4, z); dist = 48; side = 0; }
   else if (p.mode === 'sky' || p.mode === 'glide') { pivot = new THREE.Vector3(p.x, p.y + 1.6, p.z); dist = 7; side = 0; }
-  else { pivot = new THREE.Vector3(p.x, p.y + (p.crouch ? 1.15 : 1.6), p.z); const sc = w && WEAPONS[w.key].scope && p.ads; dist = p.ads ? (sc ? 0.4 : 1.8) : 3.6; side = p.ads ? 0.6 : 0.8; }
+  else { pivot = new THREE.Vector3(p.x, p.y + (p.crouch ? 1.15 : 1.6) - Math.max(0, p.landT || 0) * 0.7, p.z); const sc = w && WEAPONS[w.key].scope && p.ads; dist = p.ads ? (sc ? 0.4 : 1.8) : 3.6; side = p.ads ? 0.6 : 0.8; }
   // Kollision der Kamera
   const want = new THREE.Vector3(pivot.x - f.x * dist + rxv * side, pivot.y - f.y * dist + 0.15, pivot.z - f.z * dist + rzv * side);
   const dx = want.x - pivot.x, dy = want.y - pivot.y, dz = want.z - pivot.z, L = Math.hypot(dx, dy, dz);
@@ -249,7 +249,7 @@ function step(dt) {
   // Alte Schüsse entfernen
   if (M.shots.length > 200) M.shots.splice(0, M.shots.length - 150);
   itemT -= dt; if (itemT <= 0) { itemT = 0.4; updateItemMeshes(p.x, p.z); }
-  for (const it of M.items) if (it.m) { it.m.rotation.y += dt * 1.2; if (it.pop) { const k = Math.min(1, (M.time - it.pop.t0) / 0.55); it.m.position.set(it.pop.sx + (it.x - it.pop.sx) * k, it.pop.sy + (it.y + 0.45 - it.pop.sy) * k + Math.sin(k * Math.PI) * 1.3, it.pop.sz + (it.z - it.pop.sz) * k); if (k >= 1) it.pop = null; } else it.m.position.y = it.y + 0.45 + Math.sin(M.time * 2 + it.bob) * 0.08; }
+  for (const it of M.items) if (it.m) { it.m.rotation.y += dt * 1.2; if (it.rar === 4 && !it.pop && Math.random() < dt * 3) FX.spawn(it.x + rand(-0.4, 0.4), it.y + rand(0.3, 1.2), it.z + rand(-0.4, 0.4), 0, 0.8, 0, 1.0, 0.75, 0.25, 0.8, 0.14); if (it.pop) { const k = Math.min(1, (M.time - it.pop.t0) / 0.55); it.m.position.set(it.pop.sx + (it.x - it.pop.sx) * k, it.pop.sy + (it.y + 0.45 - it.pop.sy) * k + Math.sin(k * Math.PI) * 1.3, it.pop.sz + (it.z - it.pop.sz) * k); if (k >= 1) it.pop = null; } else it.m.position.y = it.y + 0.45 + Math.sin(M.time * 2 + it.bob) * 0.08; }
   if (M.state !== 'end') updateCamera(dt);
   hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.updateHUD(0.08); } mmT -= dt; if (mmT <= 0) { mmT = 0.2; UI.minimap(); }
 }

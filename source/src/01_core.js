@@ -91,12 +91,13 @@ const Audio = {
     if (!this.ctx) return; const v = this.spatial(dist); if (v < 0.02) return; const t = this.ctx.currentTime;
     const P = {
       ar: [900, 0.8, 0.5, 0.16, 120], tac: [1200, 0.9, 0.45, 0.12, 140], smg: [1600, 1, 0.35, 0.09, 180], rsmg: [1900, 1, 0.32, 0.08, 200],
-      pump: [500, 0.6, 0.8, 0.35, 70], tsg: [650, 0.7, 0.65, 0.28, 80], bolt: [700, 0.5, 0.9, 0.6, 60], semi: [800, 0.6, 0.75, 0.42, 70], pistol: [1400, 0.9, 0.4, 0.12, 160]
+      pump: [500, 0.6, 0.8, 0.35, 70], tsg: [650, 0.7, 0.65, 0.28, 80], bolt: [700, 0.5, 0.9, 0.6, 60], semi: [800, 0.6, 0.75, 0.42, 70], pistol: [1400, 0.9, 0.4, 0.12, 160],
+      heavy: [700, 0.7, 0.6, 0.2, 100], lmg: [1000, 0.9, 0.45, 0.12, 130], dmr: [850, 0.6, 0.65, 0.3, 90], hsg: [450, 0.6, 0.85, 0.38, 60], dsg: [400, 0.5, 0.95, 0.45, 55], hand: [600, 0.6, 0.8, 0.35, 70], hunt: [650, 0.5, 0.85, 0.5, 60], rpg: [260, 0.4, 0.7, 0.55, 45]
     }[kind] || [1000, 1, 0.4, 0.12, 150];
     this.noise(t, P[3], P[0], P[1], P[2] * v, 'bandpass');
     this.noise(t, P[3] * 0.6, 180, 0.7, P[2] * 0.9 * v, 'lowpass');
     this.tone(t, P[4], P[3] * 0.8, 0.35 * P[2] * v, 'triangle', null, 40);
-    if (kind === 'bolt' || kind === 'pump') this.noise(t + 0.02, 0.9, 300, 0.4, 0.12 * v, 'lowpass', null, 0.9);
+    if (kind === 'bolt' || kind === 'pump' || kind === 'hunt' || kind === 'dsg' || kind === 'rpg') this.noise(t + 0.02, 0.9, 300, 0.4, 0.12 * v, 'lowpass', null, 0.9);
   },
   reload(kind) { if (!this.ctx) return; const t = this.ctx.currentTime; this.noise(t, 0.05, 3000, 3, 0.25); this.noise(t + 0.35, 0.05, 2200, 3, 0.3); this.tone(t + 0.36, 900, 0.05, 0.08, 'square'); if (kind === 'pump' || kind === 'tsg') this.noise(t + 0.6, 0.12, 900, 1, 0.3); },
   empty() { if (!this.ctx) return; this.tone(this.ctx.currentTime, 1800, 0.04, 0.12, 'square'); },

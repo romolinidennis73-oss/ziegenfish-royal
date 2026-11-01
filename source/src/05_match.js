@@ -8,7 +8,7 @@ const DIFF = { leicht: { err: 6.5, react: 1.0, pdmg: 0.3, think: 0.45, perr: 6, 
 function newChar(name, skin, isPlayer) {
   const c = {
     name, skin, isPlayer, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, hp: 100, shield: 0, alive: true, onGround: false, crouch: false, sprint: false,
-    slots: [null, null, null, null, null], sel: 0, ammo: { leicht: 0, mittel: 0, schwer: 0, schrot: 0 }, reloadT: 0, fireCD: 0, burstLeft: 0, bloom: 0, recoilT: 0,
+    slots: [null, null, null, null, null], sel: 0, ammo: { leicht: 0, mittel: 0, schwer: 0, schrot: 0, rakete: 0 }, reloadT: 0, fireCD: 0, burstLeft: 0, bloom: 0, recoilT: 0,
     id: (M._id = (M._id || 0) + 1), healT: 0, healKey: null, kills: 0, dmgDone: 0, hitT: 0, mode: 'lobby', animSpeed: 0, model: null, inWater: false, stepT: 0, glider: null, deathT: 0, placement: 0
   };
   c.model = makeCharacter(skin, isPlayer); ZR.scene.add(c.model.root); return c;
@@ -43,7 +43,7 @@ function moveChar(c, wx, wz, dt, simple) {
   else { const r = Math.hypot(c.x, c.z); if (r > W.BOUND) { c.x *= W.BOUND / r; c.z *= W.BOUND / r; } }
   c.vy -= G * dt; c.y += c.vy * dt;
   const g = simple ? heightAt(c.x, c.z) : groundAt(c.x, c.z, y0, STEP, 0.25);
-  if (c.y <= g) { if (!c.onGround && c.vy < -16 && c.isPlayer) Audio.step(0); c.y = g; c.vy = 0; c.onGround = true; }
+  if (c.y <= g) { if (!c.onGround && c.vy < -12) { c.landT = clamp(-c.vy / 40, 0.12, 0.35); if (c.isPlayer) { Audio.step(0); FX.burst(c.x, c.y + 0.1, c.z, 8, 0.75, 0.7, 0.62, 2.2, 0.5, 0.35); } } c.y = g; c.vy = 0; c.onGround = true; }
   else if (c.onGround && c.vy <= 0 && y0 - g < 0.65) { c.y = g; c.vy = 0; }
   else c.onGround = false;
   if (!simple && c.vy > 0) { // Decke
@@ -115,7 +115,7 @@ function dropAll(c) {
   const base = (i) => [c.x + Math.cos(i * 1.3) * 1.3, c.z + Math.sin(i * 1.3) * 1.3]; let i = 0;
   for (const s of c.slots) if (s) { const [x, z] = base(i++); spawnItem(s.key, s.rar || 0, s.n != null ? s.n : s.mag, x, c.y + 0.5, z); }
   for (const a in c.ammo) if (c.ammo[a] > 0) { const [x, z] = base(i++); spawnItem(a, 0, Math.min(c.ammo[a], 120), x, c.y + 0.5, z); }
-  c.slots = [null, null, null, null, null]; c.ammo = { leicht: 0, mittel: 0, schwer: 0, schrot: 0 };
+  c.slots = [null, null, null, null, null]; c.ammo = { leicht: 0, mittel: 0, schwer: 0, schrot: 0, rakete: 0 };
 }
 
 // ---------------- Waffen benutzen ----------------
@@ -133,7 +133,7 @@ function weaponUpdate(c, dt) {
     if (c.healT <= 0) {
       if (it.heal) c.hp = Math.min(Math.max(c.hp, it.maxHp), Math.min(c.hp + it.heal, it.maxHp));
       if (it.shield) c.shield = Math.min(Math.max(c.shield, it.maxShield), Math.min(c.shield + it.shield, it.maxShield));
-      s2.n--; if (s2.n <= 0) { c.slots[c.sel] = null; syncHeld(c); } if (c.isPlayer) Audio.heal();
+      s2.n--; if (s2.n <= 0) { c.slots[c.sel] = null; syncHeld(c); } if (c.isPlayer) Audio.heal(); FX.burst(c.x, c.y + 1.0, c.z, 16, it.shield && !it.heal ? 0.3 : 0.4, it.shield && !it.heal ? 0.75 : 1.0, it.shield && !it.heal ? 1.3 : 0.45, 2.4, 0.6, 0.25);
     }
   }
 }
@@ -141,11 +141,11 @@ function startReload(c) {
   const s = curWeapon(c); if (!s || c.reloadT > 0) return; const w = WEAPONS[s.key]; if (s.mag >= w.mag || c.ammo[w.ammo] <= 0) return;
   c.reloadT = wStat(s.key, s.rar).reload; c.burstLeft = 0; if (c.isPlayer) Audio.reload(s.key); else if (M.player && dist2(c.x, c.z, M.player.x, M.player.z) < 900) Audio.reload(s.key);
 }
-function canUseItem(c, key) { const it = ITEMS[key]; if (!it || it.throw) return false; if (it.heal) return c.hp < it.maxHp; if (it.shield) return c.shield < it.maxShield; return false; }
+function canUseItem(c, key) { const it = ITEMS[key]; if (!it || it.throw) return false; return !!(it.heal && c.hp < it.maxHp || it.shield && c.shield < it.maxShield); }
 function useItem(c) {
   const s = curSlot(c); if (!s || !ITEMS[s.key] || c.healT > 0) return false;
   if (ITEMS[s.key].throw) { if (c.fireCD > 0) return false; throwGrenade(c); s.n--; if (s.n <= 0) { c.slots[c.sel] = null; syncHeld(c); } c.fireCD = 1.0; return true; }
-  if (!canUseItem(c, s.key)) { if (c.isPlayer) UI.toast(ITEMS[s.key].heal ? 'Leben ist schon voll' : 'Schild ist schon voll'); c.fireCD = 0.5; return false; }
+  if (!canUseItem(c, s.key)) { if (c.isPlayer) UI.toast(ITEMS[s.key].heal && ITEMS[s.key].shield ? 'Leben und Schild sind schon voll' : ITEMS[s.key].heal ? 'Leben ist schon voll' : 'Schild ist schon voll'); c.fireCD = 0.5; return false; }
   c.healT = ITEMS[s.key].use; c.healKey = s.key; return true;
 }
 // feuert einmal in Richtung (dx,dy,dz) ab Mündung (ox,oy,oz); liefert true wenn geschossen
@@ -172,12 +172,13 @@ function fire(c, ox, oy, oz, dx, dy, dz, extraErr = 0) {
   for (let p = 0; p < pel; p++) {
     const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * Math.tan(sr);
     let ex = dx + (rx * Math.cos(a) + vx2 * Math.sin(a)) * r, ey = dy + (vy2 * Math.sin(a)) * r, ez = dz + (rz * Math.cos(a) + vz2 * Math.sin(a)) * r; const L = Math.hypot(ex, ey, ez); ex /= L; ey /= L; ez /= L;
+    if (w.rocket) { fireRocket(c, ox + ex * 0.8, oy + ey * 0.8, oz + ez * 0.8, ex, ey, ez, st.dmg); break; }
     const res = shootRay(c, ox, oy, oz, ex, ey, ez, w.range, st.dmg, w.head, s.key); endP = res;
     if (pdist < 160 && (p < 3 || c.isPlayer)) FX.tracer(ox, oy, oz, res.x, res.y, res.z);
   }
   s.mag--; c.recoilT = 0.25; c.bloom = Math.min(c.bloom + (w.pellets ? 0 : w.scope ? 2 : 0.35), 4);
-  if (w.burst) { if (c.burstLeft <= 0) c.burstLeft = w.burst; c.burstLeft--; c.fireCD = c.burstLeft > 0 ? 1 / w.rate : w.burstDelay; }
-  else c.fireCD = 1 / w.rate;
+  if (w.burst) { if (c.burstLeft <= 0) c.burstLeft = w.burst; c.burstLeft--; c.fireCD = c.burstLeft > 0 ? 1 / st.rate : w.burstDelay; }
+  else c.fireCD = 1 / st.rate;
   if (pdist < 160) FX.flash(ox + dx * 0.6, oy + dy * 0.6, oz + dz * 0.6, w.pellets ? 1.0 : 0.7);
   Audio.shot(w.snd, c.isPlayer ? 0 : pdist);
   if (c.isPlayer) { UI.kick(w); }
@@ -204,8 +205,22 @@ function throwGrenade(c) {
   M.grenades.push({ x: c.x + dx * 0.6, y: c.y + 1.6, z: c.z + dz * 0.6, vx: dx * 17 + c.vx * 0.5, vy: dy * 17 + 5, vz: dz * 17 + c.vz * 0.5, t: 2.3, by: c, m });
   if (c.isPlayer) Audio.jump();
 }
+let rocketGeo = null;
+function fireRocket(c, x, y, z, dx, dy, dz, dmg) {
+  if (!rocketGeo) rocketGeo = partGeo((b, gl) => { b.tube(0, 0, -0.3, 0, 0, 0.25, 0.06, 0.06, 0x5a6a4a, 10); b.tube(0, 0, 0.25, 0, 0, 0.42, 0.06, 0.005, 0xd84a2a, 10); bx(b, 0, 0, -0.28, 0.24, 0.02, 0.1, 0x3a3a3a); bx(b, 0, 0, -0.28, 0.02, 0.24, 0.1, 0x3a3a3a); gl.ell(0, 0, -0.34, 0.05, 0.05, 0.08, 0xffb040, 8, 4); });
+  const m = new THREE.Group(); m.add(new THREE.Mesh(rocketGeo.main, itemMats.m || new THREE.MeshStandardMaterial({ vertexColors: true }))); m.add(new THREE.Mesh(rocketGeo.glow, new THREE.MeshBasicMaterial({ vertexColors: true }))); m.position.set(x, y, z); m.lookAt(x + dx, y + dy, z + dz); ZR.scene.add(m);
+  M.grenades.push({ rocket: true, x, y, z, vx: dx * 55, vy: dy * 55, vz: dz * 55, t: 5, by: c, m, dmg });
+}
+function updateRocket(g, i, dt) {
+  const sp = 55, st = sp * dt; const dx = g.vx / sp, dy = g.vy / sp, dz = g.vz / sp; let hit = rayWorld(g.x, g.y, g.z, dx, dy, dz, st + 0.2) < st + 0.2;
+  if (!hit) for (const c of M.chars) { if (c === g.by || !c.alive || c.mode !== 'ground') continue; const ex = c.x - g.x, ey = c.y + 1 - g.y, ez = c.z - g.z; const tt = clamp(ex * dx + ey * dy + ez * dz, 0, st); const qx = ex - dx * tt, qy = ey - dy * tt, qz = ez - dz * tt; if (qx * qx + qz * qz < 0.45 && Math.abs(qy) < 1.0) { hit = true; break; } }
+  g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt; g.t -= dt; g.m.position.set(g.x, g.y, g.z);
+  if (Math.random() < 0.9) FX.spawn(g.x - dx * 0.4, g.y - dy * 0.4, g.z - dz * 0.4, rand(-0.5, 0.5), rand(-0.2, 0.8), rand(-0.5, 0.5), 0.75, 0.72, 0.7, 0.9, 0.35);
+  if (hit || g.t <= 0 || g.y < heightAt(g.x, g.z)) { explode(g.x - dx * 0.3, g.y - dy * 0.3, g.z - dz * 0.3, g.by, 'rpg', g.dmg, WEAPONS.rpg.radius); ZR.scene.remove(g.m); M.grenades.splice(i, 1); }
+}
 function updateGrenades(dt) {
   for (let i = M.grenades.length - 1; i >= 0; i--) {
+    if (M.grenades[i].rocket) { updateRocket(M.grenades[i], i, dt); continue; }
     const g = M.grenades[i]; g.t -= dt; g.vy -= G * dt;
     const nx = g.x + g.vx * dt, ny = g.y + g.vy * dt, nz = g.z + g.vz * dt;
     const sp = Math.hypot(g.vx, g.vy, g.vz); if (sp > 0.01) { const d = rayWorld(g.x, g.y, g.z, g.vx / sp, g.vy / sp, g.vz / sp, sp * dt + 0.15); if (d < sp * dt + 0.15) { // abprallen
@@ -216,25 +231,26 @@ function updateGrenades(dt) {
     if (g.t <= 0) { explode(g.x, g.y, g.z, g.by, 'granate'); ZR.scene.remove(g.m); M.grenades.splice(i, 1); }
   }
 }
-function explode(x, y, z, by, wkey) {
-  const it = ITEMS.granate; FX.explosion(x, y, z); const pd = M.player ? Math.hypot(M.player.x - x, M.player.z - z) : 999; Audio.explosion(pd); FX.shake = Math.max(FX.shake, clamp(1 - pd / 40, 0, 1) * 1.2);
-  for (const c of M.chars) { if (!c.alive) continue; const d = Math.hypot(c.x - x, c.y + 1 - y, c.z - z); if (d > it.radius) continue; if (!lineOfSight(x, y + 0.5, z, c.x, c.y + 1.2, c.z)) continue; damage(c, it.dmg * (1 - d / it.radius * 0.7), by, wkey, false); }
+function explode(x, y, z, by, wkey, dmg, radius) {
+  const it = { dmg: dmg || ITEMS.granate.dmg, radius: radius || ITEMS.granate.radius }; FX.explosion(x, y, z); const pd = M.player ? Math.hypot(M.player.x - x, M.player.z - z) : 999; Audio.explosion(pd); FX.shake = Math.max(FX.shake, clamp(1 - pd / 40, 0, 1) * 1.2);
+  for (const c of M.chars) { if (!c.alive) continue; const d = Math.hypot(c.x - x, c.y + 1 - y, c.z - z); if (d > it.radius || c === by && wkey === 'rpg') continue; if (!lineOfSight(x, y + 0.5, z, c.x, c.y + 1.2, c.z)) continue; damage(c, it.dmg * (1 - d / it.radius * 0.7), by, wkey, false); }
   for (const ch of M.chestObjs) if (!ch.open && Math.hypot(ch.x - x, ch.z - z) < 3) openChest(ch, null);
 }
 
 // ---------------- Loot ----------------
 function rollRarity(bias = 0) { const r = Math.random() * 100 - bias; return r < 3 ? 4 : r < 12 ? 3 : r < 30 ? 2 : r < 60 ? 1 : 0; }
-const WEAPON_POOL = ['ar', 'ar', 'ar', 'tac', 'tac', 'smg', 'smg', 'rsmg', 'pump', 'pump', 'pump', 'tsg', 'tsg', 'bolt', 'semi', 'pistol', 'pistol', 'pistol'];
-const ITEM_POOL = ['medkit', 'bandage', 'bandage', 'smallshield', 'smallshield', 'smallshield', 'bigshield', 'bigshield', 'granate', 'granate'];
+const WEAPON_POOL = ['ar', 'ar', 'ar', 'tac', 'tac', 'heavy', 'heavy', 'lmg', 'dmr', 'smg', 'smg', 'rsmg', 'pump', 'pump', 'pump', 'tsg', 'tsg', 'hsg', 'dsg', 'bolt', 'semi', 'hunt', 'pistol', 'pistol', 'hand', 'rpg'];
+const ITEM_POOL = ['medkit', 'bandage', 'bandage', 'smallshield', 'smallshield', 'smallshield', 'bigshield', 'bigshield', 'granate', 'granate', 'brause', 'brause', 'apfel', 'apfel', 'ziegenmilch'];
 function spawnItem(key, rar, n, x, y, z) {
   const g = groundAt(x, z, y + 0.3, 0.6, 0); const it = { key, rar, n, x, y: g, z, m: null, alive: true, born: M.time, bob: Math.random() * 6 };
   M.items.push(it); return it;
 }
+const ITEM_N = k => k === 'bandage' ? 5 : k === 'granate' ? 3 : k === 'apfel' ? 4 : k === 'brause' ? 2 : 1;
 function spawnRandomLoot(x, y, z, quality = 0) {
   const r = Math.random();
   if (r < 0.5) { const k = pick(WEAPON_POOL); const w = WEAPONS[k]; spawnItem(k, rollRarity(quality), w.mag, x, y, z); spawnItem(w.ammo, 0, AMMO[w.ammo].box, x + 0.8, y, z + 0.3); }
-  else if (r < 0.78) { const k = pick(ITEM_POOL); spawnItem(k, 0, k === 'bandage' ? 5 : k === 'granate' ? 3 : 1, x, y, z); }
-  else { const a = pick(['leicht', 'mittel', 'schwer', 'schrot', 'mittel', 'leicht']); spawnItem(a, 0, AMMO[a].box, x, y, z); }
+  else if (r < 0.78) { const k = pick(ITEM_POOL); spawnItem(k, 0, ITEM_N(k), x, y, z); }
+  else { const a = pick(['leicht', 'mittel', 'schwer', 'schrot', 'mittel', 'leicht', 'rakete']); spawnItem(a, 0, AMMO[a].box, x, y, z); }
 }
 let chestGeo = null, lidGeo = null; const chestGlowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
 function makeChestMesh() {
@@ -256,8 +272,8 @@ function openChest(ch, by) {
 function chestLoot(ch) {
   const S = (key, rar, n, dx, dz) => { const it = spawnItem(key, rar, n, ch.x + dx, ch.y + 0.5, ch.z + dz); it.pop = { t0: M.time, sx: ch.x, sy: ch.y + 0.6, sz: ch.z }; };
   const r = Math.random(); if (r < 0.55) { const wk = pick(WEAPON_POOL); S(wk, rollRarity(30), WEAPONS[wk].mag, 1.2, 0.6); S(WEAPONS[wk].ammo, 0, AMMO[WEAPONS[wk].ammo].box, -1.2, 0.6); }
-  else { const k = pick(ITEM_POOL); S(k, 0, k === 'bandage' ? 5 : k === 'granate' ? 2 : 1, 1.2, 0.6); }
-  const k = pick(ITEM_POOL); S(k, 0, k === 'bandage' ? 5 : k === 'granate' ? 2 : 1, -0.9, 1.3);
+  else { const k = pick(ITEM_POOL); S(k, 0, ITEM_N(k), 1.2, 0.6); }
+  const k = pick(ITEM_POOL); S(k, 0, ITEM_N(k), -0.9, 1.3);
   const a = pick(['leicht', 'mittel', 'schwer', 'schrot']); S(a, 0, AMMO[a].box, 0.3, 1.5);
   if (Math.random() < 0.6) { const wk = pick(WEAPON_POOL); S(wk, rollRarity(35), WEAPONS[wk].mag, 1.4, -0.6); S(WEAPONS[wk].ammo, 0, AMMO[WEAPONS[wk].ammo].box, -1.4, -0.6); }
   if (M.player) updateItemMeshes(M.player.x, M.player.z);

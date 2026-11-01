@@ -86,7 +86,7 @@ function makeCharacter(S, isPlayer) {
   const armL = mk(G.arm, torso, -0.3, 0.52, 0), armR = mk(G.arm, torso, 0.3, 0.52, 0);
   const legL = mk(G.leg, body, -0.11, 0.93, 0), legR = mk(G.leg, body, 0.11, 0.93, 0);
   const hand = new THREE.Group(); hand.position.set(0, -0.6, 0.02); hand.rotation.x = Math.PI / 2; armR.add(hand);
-  return { root, body, torso, head, armL, armR, legL, legR, hand, mat, gun: null, gunKey: null, t: Math.random() * 10 };
+  return { root, body, torso, head, armL, armR, legL, legR, hand, mat, gun: null, gunKey: undefined, switchT: 0, t: Math.random() * 10 };
 }
 // Prozedurale Animation
 function animateChar(m, c, dt) {
@@ -107,7 +107,11 @@ function animateChar(m, c, dt) {
   if (c.hitT > 0) { m.mat.emissive.setRGB(c.hitT * 2.5, c.hitT * 0.4, c.hitT * 0.4); m.torso.rotation.z = Math.sin(c.hitT * 30) * 0.08; } else if (m.mat.emissive.r) { m.mat.emissive.setRGB(0, 0, 0); m.torso.rotation.z = 0; }
   m.head.rotation.x = -aimP * 0.5;
   // Waffe in der Hand
-  if (c.gunKey !== m.gunKey) { if (m.gun) m.hand.remove(m.gun); m.gun = c.gunKey ? itemMesh(c.gunKey, c.gunRar || 0, true) : null; if (m.gun) m.hand.add(m.gun); m.gunKey = c.gunKey; }
+  const gk = c.gunKey ? c.gunKey + (c.gunRar || 0) : null;
+  if (gk !== m.gunKey) { if (m.gun) m.hand.remove(m.gun); m.gun = c.gunKey ? itemMesh(c.gunKey, c.gunRar || 0, true) : null; if (m.gun) m.hand.add(m.gun); if (m.gunKey !== undefined) m.switchT = 0.3; m.gunKey = gk; }
+  if (m.switchT > 0) { m.switchT -= dt; const k = Math.max(0, m.switchT) / 0.3; m.armR.rotation.x += k * 1.1; m.armL.rotation.x += k * 0.9; if (m.gun) m.gun.rotation.x = k * 1.2; } else if (m.gun) m.gun.rotation.x = 0;
+  if (c.landT > 0) { c.landT -= dt; m.body.position.y -= c.landT * 0.9; m.legL.rotation.x = -c.landT * 2.2; m.legR.rotation.x = -c.landT * 2.2; m.torso.rotation.x += c.landT * 0.8; }
+  if (c.healT > 0 && c.healKey && Math.random() < dt * 14) { const it = ITEMS[c.healKey]; const sh = it.shield && !it.heal; FX.spawn(c.x + rand(-0.45, 0.45), c.y + rand(0.2, 1.4), c.z + rand(-0.45, 0.45), 0, 1.6, 0, sh ? 0.3 : 0.4, sh ? 0.75 : 1.0, sh ? 1.3 : 0.45, 0.7, 0.16); }
   if (m.gun) m.gun.position.z = -recoil * 0.08;
 }
 
@@ -116,7 +120,7 @@ const RARITY = [
   { name: 'Gewöhnlich', col: '#a8acb3', hex: 0xa8acb3, mult: 1.0 }, { name: 'Ungewöhnlich', col: '#4fc34a', hex: 0x4fc34a, mult: 1.05 },
   { name: 'Selten', col: '#3a9bff', hex: 0x3a9bff, mult: 1.1 }, { name: 'Episch', col: '#b45cff', hex: 0xb45cff, mult: 1.16 }, { name: 'Legendär', col: '#ffb02e', hex: 0xffb02e, mult: 1.23 }
 ];
-const AMMO = { leicht: { name: 'Leichte Munition', col: '#7fc8ff', box: 30 }, mittel: { name: 'Mittlere Munition', col: '#ffd06b', box: 30 }, schwer: { name: 'Schwere Munition', col: '#ff7b5c', box: 6 }, schrot: { name: 'Schrot', col: '#ffef9a', box: 8 } };
+const AMMO = { leicht: { name: 'Leichte Munition', col: '#7fc8ff', box: 30 }, mittel: { name: 'Mittlere Munition', col: '#ffd06b', box: 30 }, schwer: { name: 'Schwere Munition', col: '#ff7b5c', box: 6 }, schrot: { name: 'Schrot', col: '#ffef9a', box: 8 }, rakete: { name: 'Raketen', col: '#ff9a3c', box: 2 } };
 // dmg pro Treffer/Pellet, rate Schüsse/s, mag, reload s, range m, spread Grad, pellets, burst
 const WEAPONS = {
   ar: { name: 'Sturmgewehr', en: 'Assault Rifle', cls: 'Sturmgewehr', dmg: 31, head: 1.6, rate: 5.5, mag: 30, reload: 2.2, range: 160, spread: 1.7, ammo: 'mittel', snd: 'ar', auto: true, zoom: 1.6, botAcc: 1 },
@@ -128,6 +132,14 @@ const WEAPONS = {
   bolt: { name: 'Repetier-Sniper', en: 'Bolt Sniper', cls: 'Scharfschützengewehr', dmg: 108, head: 2.5, rate: 0.38, mag: 1, reload: 2.6, range: 450, spread: 0.0, hipSpread: 5, ammo: 'schwer', snd: 'bolt', zoom: 4.5, scope: true, botAcc: 0.6 },
   semi: { name: 'Halbautomatik-Sniper', en: 'Semi-Auto Sniper', cls: 'Scharfschützengewehr', dmg: 66, head: 2.2, rate: 1.4, mag: 10, reload: 2.8, range: 380, spread: 0.25, hipSpread: 4, ammo: 'schwer', snd: 'semi', zoom: 3.5, scope: true, botAcc: 0.7 },
   pistol: { name: 'Standard-Pistole', en: 'Standard Pistol', cls: 'Pistole', dmg: 24, head: 1.8, rate: 6, mag: 16, reload: 1.4, range: 75, spread: 2.0, ammo: 'leicht', snd: 'pistol', zoom: 1.3, botAcc: 1 },
+  heavy: { name: 'Schweres Sturmgewehr', en: 'Heavy AR', cls: 'Sturmgewehr', dmg: 40, head: 1.6, rate: 3.8, mag: 25, reload: 2.6, range: 170, spread: 1.5, ammo: 'mittel', snd: 'heavy', auto: true, zoom: 1.7, botAcc: 1 },
+  lmg: { name: 'Leichtes MG', en: 'Light Machine Gun', cls: 'Maschinengewehr', dmg: 23, head: 1.5, rate: 8.5, mag: 60, reload: 4.6, range: 140, spread: 2.6, ammo: 'mittel', snd: 'lmg', auto: true, zoom: 1.5, botAcc: 0.95 },
+  dmr: { name: 'Präzisionsgewehr', en: 'Marksman Rifle', cls: 'Präzisionsgewehr', dmg: 47, head: 2.0, rate: 2.4, mag: 12, reload: 2.4, range: 260, spread: 0.5, ammo: 'mittel', snd: 'dmr', zoom: 2.6, botAcc: 0.85 },
+  hsg: { name: 'Schwere Schrotflinte', en: 'Heavy Shotgun', cls: 'Schrotflinte', dmg: 9.5, pellets: 10, head: 1.8, rate: 1.15, mag: 7, reload: 5.4, range: 30, spread: 6.0, ammo: 'schrot', snd: 'hsg', zoom: 1.2, botAcc: 1 },
+  dsg: { name: 'Doppelflinte', en: 'Double Barrel', cls: 'Schrotflinte', dmg: 12.5, pellets: 10, head: 1.7, rate: 3.0, mag: 2, reload: 2.5, range: 20, spread: 8.5, ammo: 'schrot', snd: 'dsg', zoom: 1.15, botAcc: 1 },
+  hand: { name: 'Handkanone', en: 'Hand Cannon', cls: 'Pistole', dmg: 62, head: 1.8, rate: 1.3, mag: 7, reload: 2.0, range: 110, spread: 1.4, ammo: 'schwer', snd: 'hand', zoom: 1.4, botAcc: 0.9 },
+  hunt: { name: 'Jagdgewehr', en: 'Hunting Rifle', cls: 'Scharfschützengewehr', dmg: 86, head: 2.3, rate: 0.6, mag: 1, reload: 1.8, range: 320, spread: 0.35, ammo: 'schwer', snd: 'hunt', zoom: 2.2, botAcc: 0.75 },
+  rpg: { name: 'Raketenwerfer', en: 'Rocket Launcher', cls: 'Explosiv', dmg: 100, radius: 6.5, head: 1, rate: 0.75, mag: 1, reload: 3.0, range: 300, spread: 0.3, ammo: 'rakete', snd: 'rpg', zoom: 1.5, rocket: true, botAcc: 0.8 },
 };
 const ITEMS = {
   granate: { name: 'Granate', cls: 'Explosiv', stack: 6, throw: true, dmg: 105, radius: 7.5 },
@@ -135,8 +147,11 @@ const ITEMS = {
   bandage: { name: 'Verband', cls: 'Heilung', stack: 15, use: 2.5, heal: 15, maxHp: 75 },
   smallshield: { name: 'Kleiner Schildtrank', cls: 'Schild', stack: 6, use: 1.8, shield: 25, maxShield: 50 },
   bigshield: { name: 'Großer Schildtrank', cls: 'Schild', stack: 3, use: 4.5, shield: 50, maxShield: 100 },
+  brause: { name: 'Blubb-Brause', cls: 'Heilung + Schild', stack: 6, use: 1.2, heal: 15, maxHp: 100, shield: 15, maxShield: 100 },
+  apfel: { name: 'Bergapfel', cls: 'Heilung', stack: 10, use: 0.6, heal: 8, maxHp: 100 },
+  ziegenmilch: { name: 'Ziegenmilch-Kanne', cls: 'Voll-Heilung', stack: 1, use: 7, heal: 100, maxHp: 100, shield: 100, maxShield: 100 },
 };
-function wStat(key, rar) { const w = WEAPONS[key]; const m = RARITY[rar].mult; return { dmg: w.dmg * m, spread: w.spread * (1.08 - rar * 0.06), reload: w.reload * (1.05 - rar * 0.05) }; }
+function wStat(key, rar) { const w = WEAPONS[key]; const m = RARITY[rar].mult; return { dmg: w.dmg * m, spread: w.spread * (1.08 - rar * 0.06), reload: w.reload * (1.05 - rar * 0.05), rate: w.rate * (1 + rar * 0.035) }; }
 
 // Item-Modelle (verschmolzen, gecacht)
 const itemGeoCache = new Map();
@@ -144,6 +159,7 @@ function itemGeo(key, rar) {
   const ck = key + rar; if (itemGeoCache.has(ck)) return itemGeoCache.get(ck);
   const R = RARITY[rar].hex, dk = 0x26282c, md = 0x45484e, wd = 0x7a5232;
   const pg = partGeo((b, gl) => {
+    if (WEAPONS[key] && rar >= 3) { const L = WEAPONS[key].scope || key === 'hunt' || key === 'dmr' ? 0.55 : 0.36; bx(gl, 0.047, 0.0, 0.22, 0.008, 0.022, L, R); bx(gl, -0.047, 0.0, 0.22, 0.008, 0.022, L, R); if (rar === 4) { bx(gl, 0, 0.085, 0.08, 0.03, 0.012, 0.1, 0xfff1a8); gl.ell(0, -0.02, -0.02, 0.02, 0.02, 0.02, 0xfff1a8, 6, 4); } }
     switch (key) {
       case 'ar': bx(b, 0, 0, 0.25, 0.08, 0.13, 0.6, md); b.tube(0, 0.02, 0.5, 0, 0.02, 0.86, 0.022, 0.02, dk, 8); b.tube(0, 0.02, 0.5, 0, 0.02, 0.62, 0.035, 0.035, md, 8); bx(b, 0, -0.13, 0.25, 0.06, 0.18, 0.09, dk); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, -0.01, -0.15, 0.07, 0.11, 0.25, R); bx(b, 0, 0.1, 0.25, 0.04, 0.05, 0.16, dk); bx(gl, 0, 0.1, 0.17, 0.02, 0.02, 0.01, 0xff3030); break;
       case 'tac': bx(b, 0, 0, 0.25, 0.1, 0.15, 0.55, 0x2f3440); b.tube(0, 0.02, 0.5, 0, 0.02, 0.78, 0.028, 0.025, dk, 8); bx(b, 0, -0.14, 0.32, 0.07, 0.2, 0.1, R); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, 0, -0.12, 0.08, 0.13, 0.2, dk); b.tube(0, 0.13, 0.13, 0, 0.13, 0.35, 0.035, 0.04, R, 10); gl.ell(0, 0.13, 0.352, 0.032, 0.032, 0.006, 0x7fd0ff, 8, 4); break;
@@ -154,6 +170,17 @@ function itemGeo(key, rar) {
       case 'bolt': bx(b, 0, 0, 0.3, 0.07, 0.1, 0.8, wd); b.tube(0, 0.02, 0.66, 0, 0.02, 1.1, 0.02, 0.017, dk, 8); b.tube(0, 0.12, 0.13, 0, 0.12, 0.47, 0.03, 0.03, dk, 10); b.tube(0, 0.12, 0.43, 0, 0.12, 0.5, 0.04, 0.045, R, 10); b.tube(0, 0.12, 0.1, 0, 0.12, 0.16, 0.042, 0.035, R, 10); bx(b, 0.06, 0.03, 0.18, 0.08, 0.02, 0.02, md); bx(b, 0, -0.07, -0.15, 0.07, 0.16, 0.25, wd); bx(gl, 0, 0.11, 0.505, 0.05, 0.05, 0.01, 0x9fe1ff); break;
       case 'semi': bx(b, 0, 0, 0.3, 0.08, 0.12, 0.75, 0x3c4048); b.tube(0, 0.02, 0.66, 0, 0.02, 1.02, 0.022, 0.02, dk, 8); b.tube(0, 0.12, 0.12, 0, 0.12, 0.44, 0.032, 0.038, dk, 10); bx(b, 0, -0.14, 0.32, 0.06, 0.16, 0.12, R); bx(b, 0, -0.06, -0.15, 0.07, 0.15, 0.25, R); bx(gl, 0, 0.12, 0.445, 0.05, 0.05, 0.01, 0x9fe1ff); break;
       case 'pistol': bx(b, 0, 0.02, 0.1, 0.06, 0.08, 0.24, md); bx(b, 0, -0.08, 0.02, 0.055, 0.15, 0.07, dk); bx(b, 0, 0.06, 0.1, 0.05, 0.02, 0.22, R); break;
+      case 'heavy': bx(b, 0, 0, 0.25, 0.1, 0.15, 0.62, 0x3a3326); b.tube(0, 0.02, 0.55, 0, 0.02, 0.92, 0.03, 0.028, dk, 8); bx(b, 0, -0.15, 0.27, 0.07, 0.2, 0.1, dk); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, -0.01, -0.15, 0.08, 0.13, 0.26, R); bx(b, 0, 0.12, 0.25, 0.05, 0.06, 0.2, dk); bx(b, 0, 0.0, 0.55, 0.11, 0.08, 0.14, R); break;
+      case 'lmg': bx(b, 0, 0, 0.25, 0.1, 0.15, 0.65, md); b.tube(0, 0.03, 0.55, 0, 0.03, 0.98, 0.03, 0.03, dk, 10); b.cyl(0, -0.2, 0.22, 0.09, 0.12, R, 12); bx(b, 0, -0.08, 0.04, 0.06, 0.14, 0.07, dk); bx(b, 0, -0.01, -0.16, 0.08, 0.12, 0.26, dk); bx(b, 0.03, -0.14, 0.82, 0.015, 0.16, 0.015, dk); bx(b, -0.03, -0.14, 0.82, 0.015, 0.16, 0.015, dk); break;
+      case 'dmr': bx(b, 0, 0, 0.3, 0.08, 0.12, 0.7, 0x5a4a38); b.tube(0, 0.02, 0.62, 0, 0.02, 1.0, 0.022, 0.02, dk, 8); b.tube(0, 0.12, 0.15, 0, 0.12, 0.4, 0.03, 0.033, dk, 10); bx(b, 0, -0.13, 0.3, 0.06, 0.14, 0.1, R); bx(b, 0, -0.06, -0.15, 0.07, 0.15, 0.25, R); bx(gl, 0, 0.12, 0.405, 0.045, 0.045, 0.01, 0x9fe1ff); break;
+      case 'hsg': bx(b, 0, 0, 0.22, 0.11, 0.14, 0.55, 0x2a2622); b.tube(0, 0.02, 0.5, 0, 0.02, 0.82, 0.04, 0.04, dk, 10); bx(b, 0, -0.08, 0.45, 0.08, 0.08, 0.22, R); bx(b, 0, -0.08, 0.03, 0.06, 0.14, 0.07, dk); bx(b, 0, -0.03, -0.14, 0.07, 0.13, 0.26, R); break;
+      case 'dsg': b.tube(-0.025, 0.02, 0.2, -0.025, 0.02, 0.72, 0.026, 0.026, dk, 8); b.tube(0.025, 0.02, 0.2, 0.025, 0.02, 0.72, 0.026, 0.026, dk, 8); bx(b, 0, -0.04, 0.3, 0.08, 0.06, 0.3, wd); bx(b, 0, -0.06, -0.08, 0.07, 0.14, 0.3, wd); bx(b, 0, 0.0, 0.12, 0.08, 0.08, 0.1, R); break;
+      case 'hand': bx(b, 0, 0.02, 0.12, 0.07, 0.1, 0.3, 0x8a8f96); bx(b, 0, -0.09, 0.02, 0.06, 0.16, 0.08, dk); bx(b, 0, 0.08, 0.12, 0.05, 0.03, 0.28, R); b.tube(0, 0.02, 0.26, 0, 0.02, 0.32, 0.03, 0.03, dk, 8); break;
+      case 'hunt': bx(b, 0, 0, 0.28, 0.07, 0.1, 0.72, wd); b.tube(0, 0.02, 0.6, 0, 0.02, 1.02, 0.02, 0.018, dk, 8); bx(b, 0.05, 0.04, 0.15, 0.06, 0.02, 0.02, md); bx(b, 0, -0.07, -0.13, 0.07, 0.16, 0.24, wd); bx(b, 0, 0.07, 0.3, 0.04, 0.03, 0.3, R); break;
+      case 'rpg': b.tube(0, 0.05, -0.35, 0, 0.05, 0.75, 0.075, 0.075, 0x4a5a3a, 12); b.tube(0, 0.05, 0.72, 0, 0.05, 0.82, 0.09, 0.09, R, 12); b.tube(0, 0.05, -0.38, 0, 0.05, -0.3, 0.085, 0.085, R, 12); bx(b, 0, -0.08, 0.12, 0.05, 0.16, 0.07, dk); bx(b, 0, -0.08, 0.35, 0.05, 0.14, 0.06, dk); bx(b, 0.08, 0.13, 0.25, 0.04, 0.08, 0.12, md); gl.ell(0, 0.05, 0.83, 0.05, 0.05, 0.03, 0xff7a2a, 8, 4); break;
+      case 'brause': b.cyl(0, -0.1, 0, 0.06, 0.2, 0x38c9ff, 12); gl.cyl(0, -0.06, 0, 0.062, 0.08, 0x9ff0ff, 12); b.cyl(0, 0.1, 0, 0.035, 0.04, 0xeeeeee, 8); break;
+      case 'apfel': b.ell(0, 0, 0, 0.08, 0.075, 0.08, 0xd8342c, 10, 8); b.tube(0, 0.06, 0, 0.01, 0.11, 0, 0.008, 0.006, 0x5a3a20, 5); b.ell(0.03, 0.1, 0, 0.03, 0.008, 0.015, 0x4a9a3a, 6, 4); break;
+      case 'ziegenmilch': b.cyl(0, -0.16, 0, 0.11, 0.26, 0xf4f1ea, 14); b.cyl(0, 0.1, 0, 0.05, 0.08, 0xd4d4d4, 10); bx(b, 0.12, 0.0, 0, 0.03, 0.16, 0.03, 0xd4d4d4); gl.cyl(0, -0.08, 0, 0.112, 0.06, 0xffd447, 14); break;
       case 'granate': b.ell(0, 0, 0, 0.07, 0.085, 0.07, 0x4b5a3a, 10, 8); bx(b, 0, 0.1, 0, 0.05, 0.05, 0.05, md); bx(b, 0.05, 0.1, 0, 0.07, 0.02, 0.02, R); break;
       case 'medkit': bx(b, 0, 0, 0, 0.36, 0.22, 0.22, 0xf2f2f2); bx(b, 0, 0, 0.115, 0.06, 0.16, 0.01, 0xd62828); bx(b, 0, 0, 0.115, 0.16, 0.06, 0.01, 0xd62828); bx(b, 0, 0.13, 0, 0.12, 0.04, 0.04, md); break;
       case 'bandage': bx(b, 0, 0, 0, 0.14, 0.14, 0.14, 0xeae2d2); bx(b, 0, 0, 0.075, 0.1, 0.03, 0.01, 0xd62828); break;

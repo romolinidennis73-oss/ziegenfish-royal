@@ -1,6 +1,6 @@
 // ============ Bot-KI ============
-const WSCORE = { pistol: 10, smg: 26, rsmg: 28, ar: 34, tac: 32, pump: 33, tsg: 30, semi: 30, bolt: 31 };
-const PREF_DIST = { pump: 6, tsg: 7, smg: 13, rsmg: 11, pistol: 16, ar: 28, tac: 30, semi: 60, bolt: 75 };
+const WSCORE = { pistol: 10, smg: 26, rsmg: 28, ar: 34, tac: 32, pump: 33, tsg: 30, semi: 30, bolt: 31, heavy: 35, lmg: 31, dmr: 30, hsg: 32, dsg: 29, hand: 22, hunt: 28, rpg: 30 };
+const PREF_DIST = { pump: 6, tsg: 7, smg: 13, rsmg: 11, pistol: 16, ar: 28, tac: 30, semi: 60, bolt: 75, heavy: 30, lmg: 25, dmr: 50, hsg: 6, dsg: 5, hand: 18, hunt: 55, rpg: 35 };
 function botSetup(c, i) {
   c.persona = PERSONAS[i % PERSONAS.length]; c.think = Math.random() * 0.3; c.state = 'loot'; c.target = null; c.gx = c.x; c.gz = c.z; c.goalItem = null;
   c.reactT = 0; c.strafe = Math.random() < 0.5 ? -1 : 1; c.strafeT = 0; c.stuckT = 0; c.sideT = 0; c.seenT = -99; c.lkx = 0; c.lkz = 0; c.simT = Math.random() * 0.25; c.farAcc = 0;

@@ -186,6 +186,20 @@ function furnishRoom(R, type, y) {
       addLoot(alongX ? cx - len / 2 - 0.9 : cx + 1.1, y, alongX ? cz + 1.1 : cz - len / 2 - 0.9);
     }
   }
+  if (type === 'cafe') {
+    const C = placeAtWall(R, 3.0, 0.75, { sides: R.walls.filter(w => w !== R.doorSide), front: 1.0, mid: true }); if (C) { const [x, z] = counter(C.F, y, 3.0); addLoot(x, y + 1.05, z); const [mx, mz] = C.F(0.6, 0.35); B('metal').box(mx - 0.25, y + 1.05, mz - 0.2, mx + 0.25, y + 1.5, mz + 0.2, 0x8a8f96); }
+    for (let k = 0; k < 4; k++) { const P = placeFree(R, 0.9, 0.9, 0.9); if (!P) break; B('metal').cyl(P.x, y, P.z, 0.05, 0.74, 0x3a3f46, 8); B('furn').cyl(P.x, y + 0.74, P.z, 0.45, 0.04, pick([0xf2efe8, 0x2f2f33, 0xb08a5f]), 16); addCollider(P.x - 0.45, y, P.z - 0.45, P.x + 0.45, y + 0.78, P.z + 0.45, 'furn');
+      for (const a of [0, Math.PI]) { const sx = P.x + Math.cos(a) * 0.75, sz = P.z + Math.sin(a) * 0.75; B('furn').cyl(sx, y + 0.45, sz, 0.2, 0.05, pick(FUR.fabric), 10); B('metal').cyl(sx, y, sz, 0.03, 0.45, 0x3a3f46, 6); }
+      if (k === 0) addLoot(P.x, y + 0.78, P.z, 5); }
+    const pl = placeAtWall(R, 0.5, 0.5, { front: 0.1 }); if (pl) { const [x, z] = pl.F(0.25, 0.25); plant(x, z, y); }
+  }
+  if (type === 'clothes') {
+    for (let k = 0; k < 3; k++) { const P = placeAtWall(R, 2.2, 0.5, { front: 0.9, sides: R.walls.filter(w => w !== R.doorSide) }); if (!P) break; fbox(P.F, 0.05, 0.25, y + 1.55, 2.15, 0.29, y + 1.6, 0x9a9a9a, 'metal'); fbox(P.F, 0.05, 0.2, y, 0.1, 0.3, y + 1.6, 0x9a9a9a, 'metal'); fbox(P.F, 2.1, 0.2, y, 2.15, 0.3, y + 1.6, 0x9a9a9a, 'metal');
+      for (let u = 0.2; u < 2.05; u += 0.16) fbox(P.F, u, 0.05, y + 0.75, u + 0.12, 0.45, y + 1.52, pick([0xd84a3a, 0x3a8ad8, 0x2f2f33, 0xf2efe8, 0x4ab06a, 0xf2c14e, 0x8a4ad8]));
+      addCollider(...rectToBox(P.r, y, y + 1.6)); }
+    for (let k = 0; k < 2; k++) { const P = placeFree(R, 0.6, 0.6, 0.8); if (!P) break; B('furn').cyl(P.x, y, P.z, 0.25, 0.05, 0x2f2f33, 12); B('metal').cyl(P.x, y, P.z, 0.03, 0.9, 0x9a9a9a, 6); B('furn').ell(P.x, y + 1.25, P.z, 0.22, 0.38, 0.14, 0xf2efe8, 10, 8); B('furn').ell(P.x, y + 1.78, P.z, 0.11, 0.13, 0.11, 0xf2efe8, 10, 8); B('furn').ell(P.x, y + 1.2, P.z, 0.23, 0.25, 0.15, pick([0xd84a3a, 0x3a8ad8, 0xf2c14e]), 10, 8); addCollider(P.x - 0.25, y, P.z - 0.25, P.x + 0.25, y + 1.9, P.z + 0.25, 'furn'); }
+    const C = placeAtWall(R, 2.0, 0.7, { front: 1.0 }); if (C) { const [x, z] = counter(C.F, y, 2.0); addLoot(x, y + 1.05, z); }
+  }
   if (type === 'cabin') {
     const P = placeAtWall(R, 1.0, 2.0, { front: 0.4 }); if (P) bed(P.F, y, 1.0);
     const S = placeAtWall(R, 0.7, 0.6, { front: 0.5 }); if (S) stove(S.F, y);
@@ -198,7 +212,7 @@ function furnishRoom(R, type, y) {
     const D = placeFree(R, 1.6, 0.9, 0.4); if (D) tableTop = diningSet(D, y);
   }
   if (tableTop) addLoot(tableTop[0], tableTop[1], tableTop[2], 5);
-  if (type !== 'shop') addLoot(F0 + rand(-0.6, 0.6), y, F1 + rand(-0.6, 0.6));
+  if (type !== 'shop' && type !== 'cafe' && type !== 'clothes') addLoot(F0 + rand(-0.6, 0.6), y, F1 + rand(-0.6, 0.6));
 }
 
 // Räume eines Stockwerks bestimmen und einrichten

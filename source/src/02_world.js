@@ -549,6 +549,7 @@ function defineZones() {
   P('Mega-Lager', 300, 270, 50, 6, 'asphalt', 40);
   P('Tank & Blubb', -95, 40, 30, 10, 'asphalt', 40);
   P('Fort Zicke', -330, -70, 75, 13, 'dirt', 50);
+  P('Mecker-Mall', 175, -200, 42, Math.max(5, rawHeight(175, -200)), 'asphalt', 40);
   P('Blubbsee', W.LAKE.x, W.LAKE.z, 0, 0, null, 0).noZone = true; ZONES.pop();
   W.pois[W.pois.length - 1].r = W.LAKE.r;
   // Hütten
@@ -561,7 +562,8 @@ function defineZones() {
     [[0, -150], [-120, -110], [-250, -80], [-330, -70]],
     [[-95, 40], [-20, 120], [10, 180]],
     [[250, 90], [160, 160], [110, 240]],
-    [[0, -150], [0, -240]]
+    [[0, -150], [0, -240]],
+    [[0, -150], [80, -190], [128, -200]]
   ];
   W.roadSegs = [];
 }
@@ -681,7 +683,7 @@ function buildWorld(progress) {
   const steps = [
     () => { defineZones(); buildHeightmap(); }, () => { buildSky(); buildTerrain(ZR.tex); }, () => buildRoads(), () => buildCity(), () => buildVillage(), () => { buildIndustrial(); buildWarehouse(); },
     () => { buildGasStation(); buildMilitary(); for (const [x, z] of W.huts) hut(x, z); for (let i = 0; i < 40; i++) { const x = rand(-450, 450), z = rand(-450, 450); if (heightAt(x, z) > 3 && !zoneAt(x, z)) crate(x, z); } },
-    () => scatterProps(), () => placeTrees(), () => buildGrass(),
+    () => { buildMall(); scatterProps(); scatterStreetProps(); }, () => placeTrees(), () => buildGrass(),
     () => {
       const mats = {
         solid: new THREE.MeshStandardMaterial({ vertexColors: true, map: ZR.tex.concrete, roughness: 0.85 }),
